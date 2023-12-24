@@ -167,7 +167,7 @@ export class DetailsPanel {
                   </tr>
                   <tr>
                     <td>Installed</td>
-                    <td>v${pkg.installedVersion}</td>
+                    <td>v${pkg.installedVersion || 'None'}</td>
                   </tr>
                 </table>
               </div>
