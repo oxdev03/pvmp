@@ -1,11 +1,12 @@
-import path from 'path';
-import fs from 'fs';
 import AdmZip from 'adm-zip';
+import fs from 'fs';
+import path from 'path';
+import * as vscode from 'vscode';
 import xml2js from 'xml2js';
+
+import { CONSTANTS } from './constants';
 import { Extension } from './models/extension';
 import { Package } from './models/package';
-import * as vscode from 'vscode';
-import { CONSTANTS } from './constants';
 
 const getExtensionPathsRecursively = (dir: string, depth: number, extensionPaths: string[] = []): string[] => {
   if (depth <= 0) {

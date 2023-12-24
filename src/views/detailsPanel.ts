@@ -1,7 +1,8 @@
+import markdownit from 'markdown-it';
 import * as vscode from 'vscode';
+
 import { CONSTANTS } from '../constants';
 import { Package } from '../models/package';
-import markdownit from 'markdown-it';
 
 export class DetailsPanel {
   public static currentPanel?: DetailsPanel;

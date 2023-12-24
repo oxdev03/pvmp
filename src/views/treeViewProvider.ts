@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
-import { Extension } from '../models/extension';
+
 import { CONSTANTS } from '../constants';
+import { Extension } from '../models/extension';
 import { Package } from '../models/package';
 import { getExtensionSources, getPackages } from '../utils';
 

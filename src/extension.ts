@@ -1,12 +1,13 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { TreeViewProvider } from './views/treeViewProvider';
+
 import { CONSTANTS } from './constants';
-import { DetailsPanel } from './views/detailsPanel';
 import { Extension } from './models/extension';
 import { Package } from './models/package';
 import { installExtension, uninstallExtension } from './utils';
+import { DetailsPanel } from './views/detailsPanel';
+import { TreeViewProvider } from './views/treeViewProvider';
 
 // TODO: Update checker
 // TODO: Auto Update
