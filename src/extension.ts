@@ -3,7 +3,6 @@
 import * as vscode from 'vscode';
 
 import { CONSTANTS } from './constants';
-import { Extension } from './models/extension';
 import { Package } from './models/package';
 import { installExtension, uninstallExtension } from './utils';
 import { DetailsPanel } from './views/detailsPanel';
@@ -12,7 +11,6 @@ import { TreeViewProvider } from './views/treeViewProvider';
 // TODO: Update checker
 // TODO: Auto Update
 // TODO: Update to specific version
-// TODO: publisher hover label
 // TODO: Markdown local image support using base64
 
 // This method is called when your extension is activated

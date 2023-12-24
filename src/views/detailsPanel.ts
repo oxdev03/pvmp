@@ -109,7 +109,7 @@ export class DetailsPanel {
                   ${pkg.extension.identity.preRelease ? '<vscode-tag class="prerelease-tag">Prerelease</vscode-tag>' : ''}
                   ${pkg.extension.identity.preview ? '<vscode-tag class="preview-tag">Preview</vscode-tag>' : ''}
                 </div>
-                <div>${ext.metadata.publisher}</div>
+                <label title="Publisher">${ext.metadata.publisher}</label>
                 <div>${ext.metadata.description}</div>
                 <div class="actions">
                   ${pkg.installedVersion ? /* HTML */ `<vscode-button id="uninstallBtn">Uninstall</vscode-button>` : /* HTML */ `<vscode-button id="installBtn">Install</vscode-button>`}
