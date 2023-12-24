@@ -123,9 +123,14 @@
   color: rgb(204, 204, 204);
 }
 
-.markdown-content {
+.markdown-body {
   overflow-y: scroll;
   width: 100%;
+}
+
+.markdown-body,
+[data-theme='dark'] {
+  --color-canvas-default: transparent !important;
 }
 
 .panel vscode-panels {

@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import { CONSTANTS } from '../constants';
 import { Package } from '../models/package';
 import markdownit from 'markdown-it';
-import { installExtension } from '../utils';
 
 export class DetailsPanel {
   public static currentPanel?: DetailsPanel;
@@ -79,6 +78,7 @@ export class DetailsPanel {
     // Use a nonce to only allow a specific script to be run.
     const nonce = getNonce();
     const styleMain = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src/media/css', 'main.css'));
+    const styleGithub = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'out', 'github-markdown.css'));
 
     const ext = pkg.extension;
     const md = markdownit();
@@ -91,6 +91,7 @@ export class DetailsPanel {
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <title>${ext.name}</title>
           <link href="${styleMain}" rel="stylesheet" />
+          <link href="${styleGithub}" rel="stylesheet" />
         </head>
         <body>
           <div class="container">
@@ -119,8 +120,8 @@ export class DetailsPanel {
               <vscode-panels>
                 <vscode-panel-tab id="tab-1">DETAILS</vscode-panel-tab>
                 <vscode-panel-tab id="tab-2">CHANGELOG</vscode-panel-tab>
-                <vscode-panel-view id="view-1"><div class="markdown-content">${md.render(ext.assets.readme)}</div></vscode-panel-view>
-                <vscode-panel-view id="view-2"><div class="markdown-content">${md.render(ext.assets.changelog)}</div></vscode-panel-view>
+                <vscode-panel-view id="view-1"><div class="markdown-body">${md.render(ext.assets.readme)}</div></vscode-panel-view>
+                <vscode-panel-view id="view-2"><div class="markdown-body">${md.render(ext.assets.changelog)}</div></vscode-panel-view>
               </vscode-panels>
             </div>
             <div class="info">

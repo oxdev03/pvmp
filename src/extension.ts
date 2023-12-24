@@ -12,7 +12,6 @@ import { installExtension, uninstallExtension } from './utils';
 // TODO: Auto Update
 // TODO: Update to specific version
 // TODO: publisher hover label
-// TODO: Markdown github style
 // TODO: Markdown local image support using base64
 
 // This method is called when your extension is activated

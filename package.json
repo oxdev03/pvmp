@@ -150,6 +150,7 @@
   "dependencies": {
     "@vscode/webview-ui-toolkit": "^1.4.0",
     "adm-zip": "^0.5.10",
+    "github-markdown-css": "^5.5.0",
     "markdown-it": "^14.0.0",
     "xml2js": "^0.6.2"
   }
