@@ -31,7 +31,7 @@ class TreeNode extends vscode.TreeItem {
   constructor(pkg: Package) {
     super(pkg.extension.name, vscode.TreeItemCollapsibleState.None);
     this.id = pkg.id;
-    this.iconPath = new vscode.ThemeIcon('extensions');
+    this.iconPath = new vscode.ThemeIcon('extensions', pkg.isUpdateAvailable() ? new vscode.ThemeColor('privateMarketplace.updateIconColor') : undefined);
     this.command = {
       command: CONSTANTS.cmdView,
       title: '',

@@ -15,6 +15,16 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "colors": [
+      {
+        "id": "privateMarketplace.updateIconColor",
+        "description": "Color for Update Icon",
+        "defaults": {
+          "dark": "#4169E1",
+          "light": "#4169E1"
+        }
+      }
+    ],
     "commands": [
       {
         "command": "pvmp.install",
