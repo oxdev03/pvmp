@@ -167,7 +167,11 @@ export class DetailsPanel {
                   </tr>
                   <tr>
                     <td>Installed</td>
-                    <td>v${pkg.installedVersion || 'None'}</td>
+                    <td>${(pkg.installedVersion && 'v' + pkg.installedVersion) || 'None'}</td>
+                  </tr>
+                  <tr>
+                    <td>Platform</td>
+                    <td>${pkg.extension.identity.target}</td>
                   </tr>
                 </table>
               </div>
