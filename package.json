@@ -7,11 +7,16 @@
   "engines": {
     "vscode": "^1.85.0"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oxdev03/pvmp"
+  },
+  "license": "MIT",
   "categories": [
     "Other"
   ],
   "activationEvents": [
-    "*"
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -62,7 +67,7 @@
         {
           "id": "pvmp-activitybar",
           "title": "Private Marketplace",
-          "icon": "src/media/assets/icon.png"
+          "icon": "media/assets/icon.png"
         }
       ]
     },
@@ -71,7 +76,7 @@
         {
           "id": "pvmp-extensions",
           "name": "Private Marketplace",
-          "icon": "src/media/assets/icon.png",
+          "icon": "media/assets/icon.png",
           "visibility": "collapsed"
         }
       ]

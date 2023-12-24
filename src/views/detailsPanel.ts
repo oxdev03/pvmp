@@ -80,7 +80,7 @@ export class DetailsPanel {
 
     // Use a nonce to only allow a specific script to be run.
     const nonce = getNonce();
-    const styleMain = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src/media/css', 'main.css'));
+    const styleMain = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media/css', 'main.css'));
     const styleGithub = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'out', 'github-markdown.css'));
 
     const ext = pkg.extension;

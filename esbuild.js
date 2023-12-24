@@ -31,7 +31,7 @@ const webviewConfig = {
   ...baseConfig,
   target: 'es2020',
   format: 'esm',
-  entryPoints: ['./src/media/js/webview.js'],
+  entryPoints: ['./media/js/webview.js'],
   outfile: './out/webview.js',
 };
 

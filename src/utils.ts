@@ -228,6 +228,6 @@ export const getExtensionSources = async (): Promise<string[]> => {
 export const getWebviewOptions = (extensionUri: vscode.Uri): vscode.WebviewOptions => {
   return {
     enableScripts: true,
-    localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'src/media'), vscode.Uri.joinPath(extensionUri, 'out')],
+    localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'media'), vscode.Uri.joinPath(extensionUri, 'out')],
   };
 };
