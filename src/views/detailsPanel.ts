@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 
 import { CONSTANTS } from '../constants';
 import { Package } from '../models/package';
+import { getWebviewOptions } from '../utils';
 
 export class DetailsPanel {
   public static currentPanel?: DetailsPanel;
@@ -21,9 +22,7 @@ export class DetailsPanel {
     }
 
     // new panel
-    const panel = vscode.window.createWebviewPanel(CONSTANTS.extensionDetailsView, pkg.extension.name, vscode.ViewColumn.One, {
-      enableScripts: true,
-    });
+    const panel = vscode.window.createWebviewPanel(CONSTANTS.extensionDetailsView, pkg.extension.name, vscode.ViewColumn.One, getWebviewOptions(extensionUri));
 
     DetailsPanel.revive(panel, extensionUri);
   }

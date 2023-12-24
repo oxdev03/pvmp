@@ -23,7 +23,13 @@
       },
       {
         "command": "pvmp.uninstall",
-        "title": "Uninstall Extension"
+        "title": "Uninstall Extension",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "pvmp.update",
+        "title": "Update Extension to Latest",
+        "icon": "$(cloud-upload)"
       },
       {
         "command": "pvmp.refresh",
@@ -118,6 +124,23 @@
           "command": "pvmp.refresh",
           "when": "view == pvmp-extensions",
           "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "pvmp.install",
+          "when": "view == pvmp-extensions && viewItem == install",
+          "group": "inline"
+        },
+        {
+          "command": "pvmp.uninstall",
+          "when": "view == pvmp-extensions && viewItem == uninstall",
+          "group": "inline"
+        },
+        {
+          "command": "pvmp.update",
+          "when": "view == pvmp-extensions && viewItem == update",
+          "group": "inline"
         }
       ]
     }

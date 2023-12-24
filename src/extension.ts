@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 
 import { CONSTANTS } from './constants';
 import { Package } from './models/package';
-import { installExtension, uninstallExtension } from './utils';
+import { getWebviewOptions, installExtension, uninstallExtension } from './utils';
 import { DetailsPanel } from './views/detailsPanel';
 import { TreeViewProvider } from './views/treeViewProvider';
 
@@ -34,11 +34,18 @@ export function activate(context: vscode.ExtensionContext) {
     DetailsPanel.currentPanel?.update(pkg);
   });
 
+  vscode.commands.registerCommand(CONSTANTS.cmdUpdate, async (pkg: Package) => {
+    await vscode.commands.executeCommand(CONSTANTS.cmdInstall, pkg);
+    vscode.commands.executeCommand('workbench.action.reloadWindow');
+  });
+
   vscode.commands.registerCommand(CONSTANTS.cmdInstall, async (pkg: Package) => {
     const installedVersion = await installExtension(pkg, context);
     if (installedVersion) {
       pkg.installedVersion = installedVersion;
-      vscode.commands.executeCommand(CONSTANTS.cmdView, pkg);
+
+      DetailsPanel.currentPanel?.update(pkg);
+      extensionViewProvider.refresh();
     }
   });
 
@@ -46,7 +53,10 @@ export function activate(context: vscode.ExtensionContext) {
     const uninstalled = await uninstallExtension(pkg);
     if (uninstalled) {
       pkg.installedVersion = '';
+
       DetailsPanel.currentPanel?.update(pkg);
+      extensionViewProvider.refresh();
+      vscode.commands.executeCommand('workbench.action.reloadWindow');
     }
   });
 
@@ -71,6 +81,15 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   context.subscriptions.push(addDirCmd);
+
+  if (vscode.window.registerWebviewPanelSerializer) {
+    vscode.window.registerWebviewPanelSerializer(CONSTANTS.extensionDetailsView, {
+      async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: any) {
+        webviewPanel.webview.options = getWebviewOptions(context.extensionUri);
+        DetailsPanel.revive(webviewPanel, context.extensionUri);
+      },
+    });
+  }
 }
 
 // This method is called when your extension is deactivated

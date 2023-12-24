@@ -10,6 +10,7 @@ export const CONSTANTS = {
   msgInstall: 'install',
   msgUninstall: 'uninstall',
   cmdInstall: 'pvmp.install',
+  cmdUpdate: 'pvmp.update',
   cmdUninstall: 'pvmp.uninstall',
   treeView: 'pvmp-extensions',
   extensionDetailsView: 'pvmp-extension-details',

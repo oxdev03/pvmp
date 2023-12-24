@@ -11,7 +11,7 @@ export class TreeViewProvider implements vscode.TreeDataProvider<TreeNode> {
   constructor() {}
 
   refresh(): void {
-    this._onDidChangeTreeData.fire();
+    this._onDidChangeTreeData.fire(undefined);
   }
 
   getTreeItem(element: Package): vscode.TreeItem {
@@ -30,11 +30,15 @@ export class TreeViewProvider implements vscode.TreeDataProvider<TreeNode> {
 class TreeNode extends vscode.TreeItem {
   constructor(pkg: Package) {
     super(pkg.extension.name, vscode.TreeItemCollapsibleState.None);
+    this.id = pkg.id;
     this.iconPath = new vscode.ThemeIcon('extensions');
     this.command = {
       command: CONSTANTS.cmdView,
       title: '',
       arguments: [pkg],
     };
+    this.description = pkg.installedVersion ? (pkg.isUpdateAvailable() ? 'Update Available' : 'Up-to-Date') : '';
+    this.tooltip = pkg.extension.metadata.description;
+    this.contextValue = !pkg.installedVersion ? 'install' : pkg.isUpdateAvailable() ? 'update' : 'uninstall';
   }
 }

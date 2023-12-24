@@ -12,6 +12,11 @@ export class Package {
     this.installedVersion = '';
   }
 
+  get installedIndex() {
+    const idx = this.extensions.findIndex((e) => e.identity.version === this.installedVersion);
+    return idx === -1 ? undefined : idx;
+  }
+
   get extension() {
     return this.extensions[this.selectedIndex];
   }
@@ -27,5 +32,11 @@ export class Package {
 
   sort() {
     this.extensions.sort((a, b) => (a.identity.version > b.identity.version ? -1 : 1));
+  }
+
+  isUpdateAvailable(): boolean {
+    if (!this.installedVersion) return false;
+    const latestVersion = [this.installedVersion, ...this.extensions.map((x) => x.identity.version)].sort((a, b) => (a > b ? -1 : 1));
+    return latestVersion[0] !== this.installedVersion;
   }
 }
