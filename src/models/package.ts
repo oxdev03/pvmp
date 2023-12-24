@@ -39,4 +39,10 @@ export class Package {
     const latestVersion = [this.installedVersion, ...this.extensions.map((x) => x.identity.version)].sort((a, b) => (a > b ? -1 : 1));
     return latestVersion[0] !== this.installedVersion;
   }
+
+  isSelectedNewer(): boolean {
+    if (!this.installedVersion) return false;
+    const latestVersion = [this.installedVersion, this.extension.identity.version].sort((a, b) => (a > b ? -1 : 1));
+    return latestVersion[0] !== this.installedVersion;
+  }
 }

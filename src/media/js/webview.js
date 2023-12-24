@@ -9,10 +9,13 @@ function main() {
   select.addEventListener('change', selectVersion);
 
   const installBtn = document.getElementById('installBtn');
-  if(installBtn) installBtn.addEventListener('click', install);
+  if (installBtn) installBtn.addEventListener('click', install);
 
   const uninstallBtn = document.getElementById('uninstallBtn');
-  if(uninstallBtn) uninstallBtn.addEventListener('click', uninstall);
+  if (uninstallBtn) uninstallBtn.addEventListener('click', uninstall);
+
+  const updateBtn = document.getElementById('updateBtn');
+  if (updateBtn) updateBtn.addEventListener('click', update);
 }
 
 function selectVersion(event) {
@@ -25,6 +28,12 @@ function selectVersion(event) {
 function install() {
   vscode.postMessage({
     command: 'install',
+  });
+}
+
+function update() {
+  vscode.postMessage({
+    command: 'update',
   });
 }
 

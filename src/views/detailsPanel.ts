@@ -47,6 +47,9 @@ export class DetailsPanel {
         case CONSTANTS.msgInstall:
           if (DetailsPanel.currentPkg) vscode.commands.executeCommand(CONSTANTS.cmdInstall, DetailsPanel.currentPkg);
           break;
+        case CONSTANTS.msgUpdate:
+          if (DetailsPanel.currentPkg) vscode.commands.executeCommand(CONSTANTS.cmdUpdate, DetailsPanel.currentPkg);
+          break;
         case CONSTANTS.msgUninstall:
           if (DetailsPanel.currentPkg) vscode.commands.executeCommand(CONSTANTS.cmdUninstall, DetailsPanel.currentPkg);
           break;
@@ -84,6 +87,13 @@ export class DetailsPanel {
     const md = markdownit();
     md.options.html = true;
 
+    const updateSection =
+      pkg.isUpdateAvailable() && pkg.isSelectedNewer()
+        ? `<vscode-button id="updateBtn">Update to ${!pkg.selectedIndex ? 'Latest' : pkg.extension.identity.version}</vscode-button>`
+        : !pkg.isSelectedNewer()
+        ? `<vscode-button id="installBtn">Install v${pkg.extension.identity.version}</vscode-button>`
+        : '';
+
     return /* HTML */ `<!DOCTYPE html>
       <html>
         <head>
@@ -111,7 +121,9 @@ export class DetailsPanel {
                 <label title="Publisher">${ext.metadata.publisher}</label>
                 <div>${ext.metadata.description}</div>
                 <div class="actions">
-                  ${pkg.installedVersion ? /* HTML */ `<vscode-button id="uninstallBtn">Uninstall</vscode-button>` : /* HTML */ `<vscode-button id="installBtn">Install</vscode-button>`}
+                  ${pkg.installedVersion
+                    ? /* HTML */ `${updateSection} <vscode-button id="uninstallBtn">Uninstall</vscode-button>`
+                    : /* HTML */ `<vscode-button id="installBtn">Install</vscode-button>`}
                 </div>
               </div>
             </div>
@@ -152,6 +164,10 @@ export class DetailsPanel {
                   <tr>
                     <td>Identifier</td>
                     <td>${ext.metadata.identifier}</td>
+                  </tr>
+                  <tr>
+                    <td>Installed</td>
+                    <td>v${pkg.installedVersion}</td>
                   </tr>
                 </table>
               </div>

@@ -10,7 +10,6 @@ import { TreeViewProvider } from './views/treeViewProvider';
 
 // TODO: Update checker
 // TODO: Auto Update
-// TODO: Update to specific version
 // TODO: Markdown local image support using base64
 
 // This method is called when your extension is activated

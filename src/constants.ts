@@ -9,6 +9,7 @@ export const CONSTANTS = {
   msgSelectVersion: 'select-version',
   msgInstall: 'install',
   msgUninstall: 'uninstall',
+  msgUpdate: 'update',
   cmdInstall: 'pvmp.install',
   cmdUpdate: 'pvmp.update',
   cmdUninstall: 'pvmp.uninstall',
