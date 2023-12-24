@@ -91,7 +91,7 @@ export class DetailsPanel {
       pkg.isUpdateAvailable() && pkg.isSelectedNewer()
         ? `<vscode-button id="updateBtn">Update to ${!pkg.selectedIndex ? 'Latest' : pkg.extension.identity.version}</vscode-button>`
         : !pkg.isSelectedNewer()
-        ? `<vscode-button id="installBtn">Install v${pkg.extension.identity.version}</vscode-button>`
+        ? `<vscode-button id="updateBtn">Install v${pkg.extension.identity.version}</vscode-button>`
         : '';
 
     return /* HTML */ `<!DOCTYPE html>

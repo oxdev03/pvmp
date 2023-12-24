@@ -6,6 +6,7 @@ export const CONSTANTS = {
   cmdOpenSettings: 'pvmp.openSettings',
   cmdRefresh: 'pvmp.refresh',
   cmdView: 'pvmp.view',
+  cmdUpdateBadge: 'pvmp.updateBadge',
   msgSelectVersion: 'select-version',
   msgInstall: 'install',
   msgUninstall: 'uninstall',

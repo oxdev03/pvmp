@@ -11,6 +11,7 @@ import { TreeViewProvider } from './views/treeViewProvider';
 // TODO: Update checker
 // TODO: Auto Update
 // TODO: Markdown local image support using base64
+// TODO: check vscode engine
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -20,7 +21,17 @@ export function activate(context: vscode.ExtensionContext) {
   console.log('Congratulations, your extension "pvmp" is now active!');
 
   const extensionViewProvider = new TreeViewProvider();
-  vscode.window.registerTreeDataProvider(CONSTANTS.treeView, extensionViewProvider);
+
+  const treeView = vscode.window.createTreeView(CONSTANTS.treeView, {
+    treeDataProvider: extensionViewProvider,
+  });
+
+  context.subscriptions.push(treeView);
+
+  vscode.commands.registerCommand(CONSTANTS.cmdUpdateBadge, async (length) => {
+    console.log('Update Available', length);
+    treeView.badge = { tooltip: length ? 'Updates Available' : '', value: length };
+  });
 
   //register commands
   vscode.commands.registerCommand(CONSTANTS.cmdOpenSettings, async () => {
@@ -28,6 +39,7 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   vscode.commands.registerCommand(CONSTANTS.cmdRefresh, () => extensionViewProvider.refresh());
+
   vscode.commands.registerCommand(CONSTANTS.cmdView, (pkg: Package) => {
     DetailsPanel.show(pkg, context.extensionUri);
     DetailsPanel.currentPanel?.update(pkg);
