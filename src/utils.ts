@@ -8,6 +8,13 @@ import { CONSTANTS } from './constants';
 import { Extension } from './models/extension';
 import { Package } from './models/package';
 
+/**
+ * Recursively gets paths of extensions inside a directory.
+ * @param dir - The directory to start searching for extensions.
+ * @param depth - The depth of recursion.
+ * @param extensionPaths - Array to store found extension paths.
+ * @returns An array of extension paths.
+ */
 const getExtensionPathsRecursively = (dir: string, depth: number, extensionPaths: string[] = []): string[] => {
   if (depth <= 0) {
     return extensionPaths;
@@ -32,6 +39,11 @@ const getExtensionPathsRecursively = (dir: string, depth: number, extensionPaths
   return extensionPaths;
 };
 
+/**
+ * Gets the list of packages (collections of extensions) in a directory.
+ * @param dir - The directory to search for extensions.
+ * @returns A promise resolving to an array of packages.
+ */
 export const getPackages = async (dir: string): Promise<Package[]> => {
   const packages: Package[] = [];
   const extensions = await getExtensions(dir);
@@ -55,6 +67,11 @@ export const getPackages = async (dir: string): Promise<Package[]> => {
   return packages;
 };
 
+/**
+ * Gets the list of extensions in a directory.
+ * @param dir - The directory to search for extensions.
+ * @returns A promise resolving to an array of extensions.
+ */
 const getExtensions = async (dir: string): Promise<Extension[]> => {
   const extensionPaths = getExtensionPathsRecursively(dir, 3);
   const extensions: Extension[] = [];
@@ -113,6 +130,11 @@ const getExtensions = async (dir: string): Promise<Extension[]> => {
   return extensions;
 };
 
+/**
+ * Checks if the extension target is compatible with the current platform.
+ * @param target - The target platform of the extension.
+ * @returns True if the target is compatible; otherwise, false.
+ */
 const isCompatibleTarget = (target: string): boolean => {
   const targetPlatform = `${process.platform}-${process.arch}`;
   if (target === 'any' || targetPlatform.toLowerCase() === target.toLowerCase()) {
@@ -121,23 +143,36 @@ const isCompatibleTarget = (target: string): boolean => {
   return false;
 };
 
+/**
+ * Gets the installed version of an extension using its identifier.
+ * @param identifier - The identifier of the extension.
+ * @returns The installed version of the extension.
+ */
 const getExtensionInstalledVersion = (identifier: string): string => {
   const ext = vscode.extensions.getExtension(identifier);
   return ext?.packageJSON?.version;
 };
 
+/**
+ * Installs an extension from a package.
+ * @param pkg - The package containing the extension to install.
+ * @param ctx - The VSCode extension context.
+ * @returns A promise resolving to the installed version of the extension.
+ */
 export const installExtension = async (pkg: Package, ctx: vscode.ExtensionContext): Promise<string> => {
   const downloadDir = downloadDirectoryExists(ctx);
   const copiedExtensionPath = path.join(downloadDir, path.basename(pkg.extension.extensionPath));
-  // copy ext to download dir
+
+  // Copy extension to the download directory
   fs.copyFileSync(pkg.extension.extensionPath, copiedExtensionPath);
 
-  // install extension
-
   try {
+    // Install the extension
     await vscode.commands.executeCommand(CONSTANTS.vsCmdInstall, vscode.Uri.file(copiedExtensionPath));
-    // cleanup
+
+    // Cleanup
     fs.rmSync(copiedExtensionPath);
+
     vscode.window.showInformationMessage(`Successfully installed ${pkg.extension.id}:v${pkg.extension.identity.version}`);
     return pkg.extension.identity.version;
   } catch (err) {
@@ -148,9 +183,16 @@ export const installExtension = async (pkg: Package, ctx: vscode.ExtensionContex
   return '';
 };
 
+/**
+ * Uninstalls an extension.
+ * @param pkg - The package containing the extension to uninstall.
+ * @returns A promise resolving to true if uninstallation is successful; otherwise, false.
+ */
 export const uninstallExtension = async (pkg: Package): Promise<boolean> => {
   try {
+    // Uninstall the extension
     await vscode.commands.executeCommand(CONSTANTS.vsCmdUninstall, pkg.extension.metadata.identifier);
+
     vscode.window.showInformationMessage(`Successfully uninstalled ${pkg.extension.id}:v${pkg.installedVersion}`);
     return true;
   } catch (err) {
@@ -159,6 +201,11 @@ export const uninstallExtension = async (pkg: Package): Promise<boolean> => {
   return false;
 };
 
+/**
+ * Checks if the download directory exists and creates it if necessary.
+ * @param ctx - The VSCode extension context.
+ * @returns The path to the download directory.
+ */
 const downloadDirectoryExists = (ctx: vscode.ExtensionContext): string => {
   const downloadDir = vscode.Uri.joinPath(ctx.globalStorageUri, 'temp');
 
@@ -169,6 +216,10 @@ const downloadDirectoryExists = (ctx: vscode.ExtensionContext): string => {
   return downloadDir.fsPath;
 };
 
+/**
+ * Gets the extension sources configured in VSCode settings.
+ * @returns A promise resolving to an array of extension source paths.
+ */
 export const getExtensionSources = async (): Promise<string[]> => {
   let paths = (await vscode.workspace.getConfiguration('').get<string[]>(CONSTANTS.propSource)) || [];
   return paths;
