@@ -1,71 +1,64 @@
-# pvmp README
+# Private Marketplace
 
-This is the README for your extension "pvmp". After writing up a brief description, we recommend including the following sections.
+## Description
+
+Private Marketplace is a Visual Studio Code extension designed for corporate environments. It provides a private marketplace for managing and distributing extensions within your organization.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- **Secure Extension Management:** Keep control over the extensions available in your corporate environment.
+- **Centralized Distribution:** Easily distribute and manage extensions within your organization.
+- **Offline Support:** Install extensions without an internet connection.
+- **Auto Updates:** Automatically update extensions when new versions are available.
+- **Easy Configuration:** Quickly configure by configuring the directory where the extensions are stored.
 
-For example if there is an image subfolder under your extension project workspace:
+## Getting Started
 
-\!\[feature X\]\(images/feature-x.png\)
+### Installation
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+1. Open Visual Studio Code.
+2. Go to the Extensions view (`Ctrl+Shift+X` or `Cmd+Shift+X`).
+3. Search for "Private Marketplace" and click Install.
 
-## Requirements
+### Configuration
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+To configure Private Marketplace, follow these steps:
 
-## Extension Settings
+1. Add the directory where the extensions are stored once prompted or using the folder icon in the extension's view.
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+#### Optional:
 
-For example:
+2. Open the extension's settings using the gear icon in the extension's view. - Enable auto updates by ticking the "Auto Update" checkbox. - Check updates every 1h by ticking the "Check Update" checkbox.
 
-This extension contributes the following settings:
+## Infos
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+- The extension searches for extensions in the configured directory (max. depth: 3) and displays them in the private marketplace extension view.
+- Specific versions can be selected using the version dropdown.
+- If the target platform isn't specified, the extension will not be displayed.
+- The published date is based on the last modified date of the extension in the directory.
+- The markdown view doesn't current support local images.
 
-## Known Issues
+## Usage
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+1. Open the private marketplace extension view
+2. Select the extension you want to install , update or uninstall
+3. Click the install, update or uninstall button
 
-## Release Notes
+## Contributing
 
-Users appreciate release notes as you update your extension.
+Contributions are welcome!.
 
-### 1.0.0
+1. Fork the repository.
+2. Create a branch for your feature (`git checkout -b my-feature`).
+3. Commit your changes (`git commit -am 'Add my feature'`).
+4. Push to the branch (`git push origin my-feature`).
+5. Create a new Pull Request
+6. Sit back and wait
 
-Initial release of ...
+## License
 
-### 1.0.1
+This extension is licensed under the [MIT License](LICENSE).
 
-Fixed issue #.
+## Support
 
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+If you encounter any issues or have questions, please open an issue on the [GitHub repository](https://github.com/oxdev03/pvmp).
