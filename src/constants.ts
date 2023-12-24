@@ -1,0 +1,16 @@
+export const CONSTANTS = {
+  vsCmdInstall: 'workbench.extensions.installExtension',
+  vsCmdUninstall: 'workbench.extensions.uninstallExtension',
+  cmdAddSource: 'pvmp.addSource',
+  propSource: 'privateMarketplace.Source',
+  cmdOpenSettings: 'pvmp.openSettings',
+  cmdRefresh: 'pvmp.refresh',
+  cmdView: 'pvmp.view',
+  msgSelectVersion: 'select-version',
+  msgInstall: 'install',
+  msgUninstall: 'uninstall',
+  cmdInstall: 'pvmp.install',
+  cmdUninstall: 'pvmp.uninstall',
+  treeView: 'pvmp-extensions',
+  extensionDetailsView: 'pvmp-extension-details',
+};

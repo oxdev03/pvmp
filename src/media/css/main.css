@@ -1,0 +1,137 @@
+.container {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.2fr;
+  grid-template-rows: 130px 1fr 1fr;
+  gap: 1em 0px;
+  grid-auto-flow: row;
+  grid-template-areas:
+    'head head head head'
+    'panel panel panel info'
+    'panel panel panel info';
+
+  margin-top: 1em;
+  margin-right: 10vw;
+  margin-left: 10vw;
+  max-height: 100vh;
+}
+
+.head {
+  display: grid;
+  grid-template-columns: 140px 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+  gap: 0px 0px;
+  grid-auto-flow: row;
+  grid-template-areas:
+    'img head-info head-info'
+    'img head-info head-info'
+    'img head-info head-info';
+  grid-area: head;
+}
+
+.img {
+  grid-area: img;
+}
+
+.img img {
+  height: 115px;
+}
+
+.head-info {
+  grid-area: head-info;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em 0px;
+}
+
+.head-info .title {
+  display: flex;
+  gap: 10px;
+}
+
+.head-info .title h1 {
+  margin: 0px;
+  margin-top: -5px;
+}
+
+.head-info .title vscode-tag {
+  align-self: center;
+}
+
+.head-info .actions {
+  display: flex;
+  margin-top: 0.2em;
+  gap: 0px 1em;
+}
+
+.head-info .actions vscode-dropdown {
+  width: 10px;
+}
+
+.panel {
+  grid-area: panel;
+}
+
+.info {
+  grid-area: info;
+}
+
+.info h3 {
+  margin: 0px;
+  margin-bottom: 0.5em;
+  margin-top: 0.5em;
+}
+
+.info .categories div {
+  display: flex;
+  gap: 0.5em;
+  flex-wrap: wrap;
+}
+
+.info .more-info table {
+  width: 100%;
+  font-size: 13px;
+}
+
+.resources div {
+  display: flex;
+  flex-direction: column;
+}
+
+.version-dropdown {
+  padding: 2px;
+  border: none;
+  background-color: rgba(128, 128, 128, 0.17);
+  color: rgb(204, 204, 204);
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  height: 1.5em;
+  margin-top: auto;
+  margin-bottom: auto;
+}
+
+.version-dropdown:hover {
+  background-color: rgba(141, 140, 140, 0.27);
+}
+
+.version-dropdown:focus {
+  outline: none;
+}
+
+.version-dropdown option {
+  background: #4a4949 !important;
+  color: rgb(204, 204, 204);
+}
+
+.markdown-content {
+  overflow-y: scroll;
+  width: 100%;
+}
+
+.panel vscode-panels {
+  margin-right: 1em;
+}
+
+.panel vscode-panels vscode-panel-view {
+  max-height: 68vh; /* BUG: fix once vscode-panel supports inbuilt overflow  */
+}

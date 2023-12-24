@@ -1,0 +1,156 @@
+{
+  "name": "pvmp",
+  "displayName": "Private Marketplace",
+  "description": "private vscode extension marketplace for corporate environments",
+  "version": "0.0.1",
+  "publisher": "oxdev03",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "pvmp.install",
+        "title": "Install Extension",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "pvmp.uninstall",
+        "title": "Uninstall Extension"
+      },
+      {
+        "command": "pvmp.refresh",
+        "title": "Refresh Extension Sources",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "pvmp.addSource",
+        "title": "Add Directory Source",
+        "icon": "$(folder)"
+      },
+      {
+        "command": "pvmp.openSettings",
+        "title": "Open Settings",
+        "icon": "$(gear)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "pvmp-activitybar",
+          "title": "Private Marketplace",
+          "icon": "src/media/assets/icon.png"
+        }
+      ]
+    },
+    "views": {
+      "pvmp-activitybar": [
+        {
+          "id": "pvmp-extensions",
+          "name": "Private Marketplace",
+          "icon": "src/media/assets/icon.png",
+          "visibility": "collapsed"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "pvmp-extensions",
+        "contents": "No Extensions Found!\n[Add Directory Source](command:pvmp.addSource)"
+      }
+    ],
+    "configuration": [
+      {
+        "title": "Private Marketplace",
+        "properties": {
+          "privateMarketplace.Source": {
+            "type": "array",
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "order": 0,
+            "description": "list of directory sources."
+          }
+        }
+      },
+      {
+        "title": "Private Marketplace",
+        "properties": {
+          "privateMarketplace.autoUpdate": {
+            "type": "boolean",
+            "order": 1,
+            "description": "Enable auto updates"
+          }
+        }
+      },
+      {
+        "title": "Private Marketplace",
+        "properties": {
+          "privateMarketplace.checkUpdate": {
+            "type": "boolean",
+            "order": 1,
+            "description": "Check for new Updates every 1h"
+          }
+        }
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "pvmp.openSettings",
+          "when": "view == pvmp-extensions",
+          "group": "navigation"
+        },
+        {
+          "command": "pvmp.addSource",
+          "when": "view == pvmp-extensions",
+          "group": "navigation"
+        },
+        {
+          "command": "pvmp.refresh",
+          "when": "view == pvmp-extensions",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "node ./esbuild.js",
+    "package": "NODE_ENV=production node ./esbuild.js",
+    "watch": "node ./esbuild.js --watch",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.5",
+    "@types/markdown-it": "^13.0.7",
+    "@types/mocha": "^10.0.3",
+    "@types/node": "18.x",
+    "@types/vscode": "^1.85.0",
+    "@types/xml2js": "^0.4.14",
+    "@typescript-eslint/eslint-plugin": "^6.9.0",
+    "@typescript-eslint/parser": "^6.9.0",
+    "@vscode/test-electron": "^2.3.6",
+    "esbuild": "^0.16.17",
+    "eslint": "^8.52.0",
+    "glob": "^10.3.10",
+    "mocha": "^10.2.0",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "@vscode/webview-ui-toolkit": "^1.4.0",
+    "adm-zip": "^0.5.10",
+    "markdown-it": "^14.0.0",
+    "xml2js": "^0.6.2"
+  }
+}
