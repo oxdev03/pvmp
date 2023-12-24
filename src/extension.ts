@@ -8,6 +8,13 @@ import { Extension } from './models/extension';
 import { Package } from './models/package';
 import { installExtension, uninstallExtension } from './utils';
 
+// TODO: Update checker
+// TODO: Auto Update
+// TODO: Update to specific version
+// TODO: publisher hover label
+// TODO: Markdown github style
+// TODO: Markdown local image support using base64
+
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {

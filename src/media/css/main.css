@@ -135,3 +135,19 @@
 .panel vscode-panels vscode-panel-view {
   max-height: 68vh; /* BUG: fix once vscode-panel supports inbuilt overflow  */
 }
+
+.preview-tag {
+  --badge-background: #d3371c;
+  --badge-foreground: #fff;
+  --tag-corner-radius: 4px;
+  font-size: 9px;
+  font-style: italic;
+}
+
+.prerelease-tag {
+  --badge-background: #229977;
+  --badge-foreground: #fff;
+  --tag-corner-radius: 4px;
+  font-size: 9px;
+  font-style: italic;
+}

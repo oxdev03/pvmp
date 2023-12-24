@@ -104,6 +104,8 @@ export class DetailsPanel {
                   <select class="version-dropdown" id="selectVersion">
                     ${pkg.extensions.map((x, i) => `<option ${pkg.selectedIndex === i ? 'selected' : ''} value="${x.identity.version}">v${x.identity.version}</option>`).join('\n')}
                   </select>
+                  ${pkg.extension.identity.preRelease ? '<vscode-tag class="prerelease-tag">Prerelease</vscode-tag>' : ''}
+                  ${pkg.extension.identity.preview ? '<vscode-tag class="preview-tag">Preview</vscode-tag>' : ''}
                 </div>
                 <div>${ext.metadata.publisher}</div>
                 <div>${ext.metadata.description}</div>

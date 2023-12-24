@@ -73,10 +73,12 @@ const getExtensions = async (dir: string): Promise<Extension[]> => {
     extension.id = extManifest?.PackageManifest?.Metadata?.Identity?.$?.Id;
     extension.extensionPath = extensionPath;
 
+    const propertiesArray = (extManifest?.PackageManifest?.Metadata?.Properties?.Property as any[]) || [];
+
     /* IDENTIFY */
     extension.identity.version = extManifest?.PackageManifest?.Metadata?.Identity?.$?.Version;
-    extension.identity.preRelease = false; //TODO: should be based on manifest
-    extension.identity.preview = false;
+    extension.identity.preRelease = !!propertiesArray.find((prop: any) => prop?.$?.Id === 'Microsoft.VisualStudio.Code.PreRelease');
+    extension.identity.preview = npmManifest?.preview;
     extension.identity.engine = npmManifest?.engines?.vscode;
 
     /* METADATA */
@@ -99,8 +101,6 @@ const getExtensions = async (dir: string): Promise<Extension[]> => {
     extension.assets.image = imagePath ? `data:image/png;base64,${Buffer.from(zip.readFile(imagePath) as Buffer).toString('base64')}` : '';
 
     /* LINKS */
-    const propertiesArray = extManifest?.PackageManifest?.Metadata?.Properties?.Property as any[];
-
     extension.links.getStarted = propertiesArray?.find((x) => x?.$?.Id?.endsWith('Links.Getstarted'))?.$?.Value;
     extension.links.learn = propertiesArray?.find((x) => x?.$?.Id?.endsWith('Links.Learn'))?.$?.Value;
     extension.links.repository = propertiesArray?.find((x) => x?.$?.Id?.endsWith('Links.Repository'))?.$?.Value;
