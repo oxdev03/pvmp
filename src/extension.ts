@@ -13,7 +13,6 @@ import {
 import { DetailsPanel } from './views/detailsPanel';
 import { TreeViewProvider } from './views/treeViewProvider';
 
-// TODO: Markdown local image support using base64
 // TODO: check vscode engine
 
 // This method is called when your extension is activated
