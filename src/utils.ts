@@ -173,6 +173,13 @@ export const installExtension = async (pkg: Package, ctx: vscode.ExtensionContex
   const downloadDir = downloadDirectoryExists(ctx);
   const copiedExtensionPath = path.join(downloadDir, path.basename(pkg.extension.extensionPath));
 
+  if (!fs.existsSync(pkg.extension.extensionPath)) {
+    await vscode.window.showErrorMessage(
+      `Failed to install ${pkg.extension.id}:v${pkg.extension.identity.version} visx file doesn't exist`,
+    );
+    return '';
+  }
+
   // Copy extension to the download directory
   fs.copyFileSync(pkg.extension.extensionPath, copiedExtensionPath);
 
