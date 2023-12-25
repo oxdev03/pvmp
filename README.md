@@ -4,6 +4,8 @@
 
 Private Marketplace is a Visual Studio Code extension designed for corporate environments. It provides a private marketplace for managing and distributing extensions within your organization.
 
+![Overview](./media/assets/overview.png)
+
 ## Features
 
 - **Secure Extension Management:** Keep control over the extensions available in your corporate environment.
@@ -32,6 +34,14 @@ To configure Private Marketplace, follow these steps:
    - Enable auto updates by ticking the "Auto Update" checkbox.
    - Check updates every 1h by ticking the "Check Update" checkbox.
 
+## Usage
+
+1. Open the private marketplace extension view
+2. Select the extension you want to install , update or uninstall
+3. Click the install, update or uninstall button
+
+![Overview Labeled](./media/assets/overview_labeled.png)
+
 ## Infos
 
 - The extension searches for extensions in the configured directory (max. depth: 3) and displays them in the private marketplace extension view.
@@ -39,12 +49,6 @@ To configure Private Marketplace, follow these steps:
 - If the target platform isn't specified, the extension will not be displayed.
 - The published date is based on the last modified date of the extension in the directory.
 - The markdown view doesn't currently support local images.
-
-## Usage
-
-1. Open the private marketplace extension view
-2. Select the extension you want to install , update or uninstall
-3. Click the install, update or uninstall button
 
 ## Contributing
 
