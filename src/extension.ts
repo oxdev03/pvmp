@@ -8,7 +8,6 @@ import { getWebviewOptions, installExtension, uninstallExtension } from './utils
 import { DetailsPanel } from './views/detailsPanel';
 import { TreeViewProvider } from './views/treeViewProvider';
 
-// TODO: Update checker
 // TODO: Auto Update
 // TODO: Markdown local image support using base64
 // TODO: check vscode engine
@@ -101,6 +100,36 @@ export function activate(context: vscode.ExtensionContext) {
       },
     });
   }
+
+  let updateCheckerId: any = undefined;
+
+  context.subscriptions.push({
+    dispose() {
+      if (updateCheckerId) clearInterval(updateCheckerId);
+    },
+  });
+
+  startCheckUpdateInterval().then((started) => (started ? console.log(`Started Check Update Interval`) : console.log(`Update Checker is deactivated`)));
+
+  async function startCheckUpdateInterval(): Promise<boolean> {
+    const checkUpdate = (await vscode.workspace.getConfiguration('')?.get(CONSTANTS.propCheckUpdate)) || false;
+    if (!checkUpdate && updateCheckerId) clearInterval(updateCheckerId);
+    else if (!updateCheckerId && checkUpdate) {
+      updateCheckerId = setInterval(() => {
+        console.log('Checking for Updates');
+        extensionViewProvider.refresh();
+      }, 1000 * 60 * 60);
+
+      return true;
+    }
+    return false;
+  }
+
+  vscode.workspace.onDidChangeConfiguration(async (e) => {
+    if (e.affectsConfiguration(CONSTANTS.propCheckUpdate)) {
+      await startCheckUpdateInterval();
+    }
+  });
 }
 
 // This method is called when your extension is deactivated

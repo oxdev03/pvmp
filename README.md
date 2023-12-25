@@ -36,7 +36,7 @@ To configure Private Marketplace, follow these steps:
 - Specific versions can be selected using the version dropdown.
 - If the target platform isn't specified, the extension will not be displayed.
 - The published date is based on the last modified date of the extension in the directory.
-- The markdown view doesn't current support local images.
+- The markdown view doesn't currently support local images.
 
 ## Usage
 

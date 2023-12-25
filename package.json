@@ -2,7 +2,8 @@
   "name": "pvmp",
   "displayName": "Private Marketplace",
   "description": "private vscode extension marketplace for corporate environments",
-  "version": "0.0.1",
+  "version": "0.0.2",
+  "icon": "media/assets/icon.png",
   "publisher": "oxdev03",
   "engines": {
     "vscode": "^1.85.0"

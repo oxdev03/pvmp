@@ -3,6 +3,8 @@ export const CONSTANTS = {
   vsCmdUninstall: 'workbench.extensions.uninstallExtension',
   cmdAddSource: 'pvmp.addSource',
   propSource: 'privateMarketplace.Source',
+  propCheckUpdate: 'privateMarketplace.checkUpdate',
+  propAutoUpdate: 'privateMarketplace.autoUpdate',
   cmdOpenSettings: 'pvmp.openSettings',
   cmdRefresh: 'pvmp.refresh',
   cmdView: 'pvmp.view',

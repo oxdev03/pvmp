@@ -44,9 +44,9 @@ const getExtensionPathsRecursively = (dir: string, depth: number, extensionPaths
  * @param dir - The directory to search for extensions.
  * @returns A promise resolving to an array of packages.
  */
-export const getPackages = async (dir: string): Promise<Package[]> => {
+export const getPackages = async (dirs: string[]): Promise<Package[]> => {
   const packages: Package[] = [];
-  const extensions = await getExtensions(dir);
+  const extensions = await getExtensions(dirs);
   if (!extensions?.length) return [];
 
   for (const extension of extensions) {
@@ -72,8 +72,8 @@ export const getPackages = async (dir: string): Promise<Package[]> => {
  * @param dir - The directory to search for extensions.
  * @returns A promise resolving to an array of extensions.
  */
-const getExtensions = async (dir: string): Promise<Extension[]> => {
-  const extensionPaths = getExtensionPathsRecursively(dir, 3);
+const getExtensions = async (dirs: string[]): Promise<Extension[]> => {
+  const extensionPaths = dirs.map((dir) => getExtensionPathsRecursively(dir, 3)).flat();
   const extensions: Extension[] = [];
   const parser = new xml2js.Parser({ explicitArray: false });
 
