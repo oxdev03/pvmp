@@ -48,6 +48,11 @@
         "icon": "$(cloud-upload)"
       },
       {
+        "command": "pvmp.batchUpdate",
+        "title": "Update All Extension to Latest",
+        "icon": "$(cloud-upload)"
+      },
+      {
         "command": "pvmp.refresh",
         "title": "Refresh Extension Sources",
         "icon": "$(refresh)"
@@ -122,10 +127,28 @@
             "description": "Check for new Updates every 1h"
           }
         }
+      },
+      {
+        "title": "Private Marketplace",
+        "properties": {
+          "privateMarketplace.failedUpdates": {
+            "type": "array",
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "description": "list of failed auto updates"
+          }
+        }
       }
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "pvmp.batchUpdate",
+          "when": "view == pvmp-extensions",
+          "group": "navigation"
+        },
         {
           "command": "pvmp.openSettings",
           "when": "view == pvmp-extensions",

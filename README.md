@@ -28,7 +28,9 @@ To configure Private Marketplace, follow these steps:
 
 #### Optional:
 
-2. Open the extension's settings using the gear icon in the extension's view. - Enable auto updates by ticking the "Auto Update" checkbox. - Check updates every 1h by ticking the "Check Update" checkbox.
+2. Open the extension's settings using the gear icon in the extension's view.
+   - Enable auto updates by ticking the "Auto Update" checkbox.
+   - Check updates every 1h by ticking the "Check Update" checkbox.
 
 ## Infos
 

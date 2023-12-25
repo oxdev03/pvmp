@@ -197,6 +197,41 @@ export const installExtension = async (pkg: Package, ctx: vscode.ExtensionContex
   return '';
 };
 
+export const batchUpdateExtensions = async (pkgs: Package[], ctx: vscode.ExtensionContext): Promise<void> => {
+  const downloadDir = downloadDirectoryExists(ctx);
+  const failedIds = ((await vscode.workspace.getConfiguration('')?.get(CONSTANTS.propFailedUpdates)) as string[]) || [];
+  let updated = 0;
+
+  for (const pkg of pkgs) {
+    if (failedIds.includes(pkg.extension.id + pkg.extension.identity.version)) continue;
+    pkg.selectedIndex = 0; //latest version
+    const copiedExtensionPath = path.join(downloadDir, path.basename(pkg.extension.extensionPath));
+    fs.copyFileSync(pkg.extension.extensionPath, copiedExtensionPath);
+
+    try {
+      console.log(copiedExtensionPath);
+      // Install the extension
+      await vscode.commands.executeCommand(CONSTANTS.vsCmdInstall, vscode.Uri.file(copiedExtensionPath));
+      // Cleanup
+      fs.rmSync(copiedExtensionPath);
+      updated++;
+    } catch (err) {
+      console.error(err);
+      await vscode.window.showErrorMessage(
+        `Failed to install ${pkg.extension.id}:v${pkg.extension.identity.version} with error ${err}`,
+      );
+      failedIds.push(pkg.extension.id + pkg.extension.identity.version);
+    }
+  }
+
+  await vscode.workspace
+    .getConfiguration('')
+    ?.update(CONSTANTS.propFailedUpdates, failedIds, vscode.ConfigurationTarget.Global);
+  if (updated) {
+    await vscode.commands.executeCommand('workbench.action.reloadWindow');
+  }
+};
+
 /**
  * Uninstalls an extension.
  * @param pkg - The package containing the extension to uninstall.

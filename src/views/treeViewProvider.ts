@@ -25,7 +25,7 @@ export class TreeViewProvider implements vscode.TreeDataProvider<TreeNode> {
 
   async getData(): Promise<Package[]> {
     const packages = await getPackages((await getExtensionSources()) || []);
-    vscode.commands.executeCommand(CONSTANTS.cmdUpdateBadge, packages.filter((x) => x.isUpdateAvailable()).length);
+    vscode.commands.executeCommand(CONSTANTS.cmdUpdateBadge, packages);
     return packages;
   }
 }

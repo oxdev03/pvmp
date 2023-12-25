@@ -2,7 +2,14 @@ import * as vscode from 'vscode';
 
 import { CONSTANTS } from './constants';
 import { Package } from './models/package';
-import { installExtension, uninstallExtension } from './utils';
+import {
+  batchUpdateExtensions,
+  getExtensionSources,
+  getPackages,
+  getWebviewOptions,
+  installExtension,
+  uninstallExtension,
+} from './utils';
 import { DetailsPanel } from './views/detailsPanel';
 import { TreeViewProvider } from './views/treeViewProvider';
 
@@ -25,12 +32,31 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(treeView);
 
-  vscode.commands.registerCommand(CONSTANTS.cmdUpdateBadge, async (length) => {
-    console.log('Update Available', length);
+  vscode.commands.registerCommand(CONSTANTS.cmdUpdateBadge, async (pkgs: Package[]) => {
+    const length = pkgs.filter((x) => x.isUpdateAvailable()).length;
     treeView.badge = { tooltip: length ? 'Updates Available' : '', value: length };
+
+    const autoUpdate = (await vscode.workspace.getConfiguration('')?.get(CONSTANTS.propAutoUpdate)) || false;
+    if (autoUpdate && length) {
+      await batchUpdateExtensions(
+        pkgs.filter((x) => x.isUpdateAvailable()),
+        context,
+      );
+    }
   });
 
-  //register commands
+  vscode.commands.registerCommand(CONSTANTS.cmdBatchUpdate, async () => {
+    const packages = await getPackages((await getExtensionSources()) || []);
+    const length = packages.filter((x) => x.isUpdateAvailable()).length;
+    if (!length) {
+      return vscode.window.showInformationMessage('No Updates Available!');
+    }
+    await batchUpdateExtensions(
+      packages.filter((x) => x.isUpdateAvailable()),
+      context,
+    );
+  });
+
   vscode.commands.registerCommand(CONSTANTS.cmdOpenSettings, async () => {
     vscode.commands.executeCommand('workbench.action.openSettings', `@ext:oxdev03.pvmp`);
   });
@@ -92,15 +118,14 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(addDirCmd);
 
-  /*   if (vscode.window.registerWebviewPanelSerializer) {
+  if (vscode.window.registerWebviewPanelSerializer) {
     vscode.window.registerWebviewPanelSerializer(CONSTANTS.extensionDetailsView, {
-      async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: any) {
+      async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel) {
         webviewPanel.webview.options = getWebviewOptions(context.extensionUri);
         DetailsPanel.revive(webviewPanel, context.extensionUri);
       },
     });
   }
- */
 
   let updateCheckerId: undefined | NodeJS.Timeout = undefined;
 
