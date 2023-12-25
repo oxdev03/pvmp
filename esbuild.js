@@ -1,7 +1,7 @@
 const { build } = require('esbuild');
 const fs = require('fs');
 
-fs.copyFileSync('node_modules/github-markdown-css/github-markdown.css', 'out/github-markdown.css');
+fs.copyFileSync('./node_modules/github-markdown-css/github-markdown.css', './out/github-markdown.css');
 
 //@ts-check
 /** @typedef {import('esbuild').BuildOptions} BuildOptions **/
