@@ -1,10 +1,8 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 
 import { CONSTANTS } from './constants';
 import { Package } from './models/package';
-import { getWebviewOptions, installExtension, uninstallExtension } from './utils';
+import { installExtension, uninstallExtension } from './utils';
 import { DetailsPanel } from './views/detailsPanel';
 import { TreeViewProvider } from './views/treeViewProvider';
 
@@ -70,7 +68,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  let addDirCmd = vscode.commands.registerCommand(CONSTANTS.cmdAddSource, async () => {
+  const addDirCmd = vscode.commands.registerCommand(CONSTANTS.cmdAddSource, async () => {
     const result = await vscode.window.showOpenDialog({
       canSelectFiles: false,
       canSelectFolders: true,
@@ -79,13 +77,15 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     if (!result?.length) return;
-    let existingPaths: string[] = (await vscode.workspace.getConfiguration('')?.get(CONSTANTS.propSource)) || [];
+    const existingPaths: string[] = (await vscode.workspace.getConfiguration('')?.get(CONSTANTS.propSource)) || [];
     existingPaths.push(...result.map((x) => x.fsPath));
 
     const uniqPaths = [...new Set(existingPaths)];
     console.log(uniqPaths);
 
-    await vscode.workspace.getConfiguration('').update(CONSTANTS.propSource, uniqPaths, vscode.ConfigurationTarget.Global);
+    await vscode.workspace
+      .getConfiguration('')
+      .update(CONSTANTS.propSource, uniqPaths, vscode.ConfigurationTarget.Global);
     extensionViewProvider.refresh();
     vscode.window.showInformationMessage(`Updated Directory Sources`);
   });
@@ -102,7 +102,7 @@ export function activate(context: vscode.ExtensionContext) {
   }
  */
 
-  let updateCheckerId: any = undefined;
+  let updateCheckerId: undefined | NodeJS.Timeout = undefined;
 
   context.subscriptions.push({
     dispose() {
@@ -110,16 +110,21 @@ export function activate(context: vscode.ExtensionContext) {
     },
   });
 
-  startCheckUpdateInterval().then((started) => (started ? console.log(`Started Check Update Interval`) : console.log(`Update Checker is deactivated`)));
+  startCheckUpdateInterval().then((started) =>
+    started ? console.log(`Started Check Update Interval`) : console.log(`Update Checker is deactivated`),
+  );
 
   async function startCheckUpdateInterval(): Promise<boolean> {
     const checkUpdate = (await vscode.workspace.getConfiguration('')?.get(CONSTANTS.propCheckUpdate)) || false;
     if (!checkUpdate && updateCheckerId) clearInterval(updateCheckerId);
     else if (!updateCheckerId && checkUpdate) {
-      updateCheckerId = setInterval(() => {
-        console.log('Checking for Updates');
-        extensionViewProvider.refresh();
-      }, 1000 * 60 * 60);
+      updateCheckerId = setInterval(
+        () => {
+          console.log('Checking for Updates');
+          extensionViewProvider.refresh();
+        },
+        1000 * 60 * 60,
+      );
 
       return true;
     }

@@ -5,7 +5,8 @@
     "ecmaVersion": 6,
     "sourceType": "module"
   },
-  "plugins": ["@typescript-eslint"],
+  "plugins": ["@typescript-eslint", "prettier"],
+  "extends": ["plugin:@typescript-eslint/recommended", "prettier"],
   "rules": {
     "@typescript-eslint/naming-convention": [
       "warn",
@@ -14,11 +15,17 @@
         "format": ["camelCase", "PascalCase"]
       }
     ],
-    "@typescript-eslint/semi": "warn",
+    "@typescript-eslint/semi": "off",
     "curly": "off",
     "eqeqeq": "warn",
     "no-throw-literal": "warn",
-    "semi": "off"
+    "semi": "off",
+    "prettier/prettier": "error",
+    "@typescript-eslint/no-var-requires": "off"
   },
-  "ignorePatterns": ["out", "dist", "**/*.d.ts"]
+  "ignorePatterns": ["out", "dist", "**/*.d.ts"],
+  "env": {
+    "browser": true,
+    "es6": true
+  }
 }

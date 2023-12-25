@@ -168,6 +168,7 @@
     "watch": "node ./esbuild.js --watch",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
+    "format": "prettier --write \"**/*.{ts,json,css,scss,md}\"",
     "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
@@ -182,8 +183,11 @@
     "@vscode/test-electron": "^2.3.6",
     "esbuild": "^0.16.17",
     "eslint": "^8.52.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.2",
     "glob": "^10.3.10",
     "mocha": "^10.2.0",
+    "prettier": "3.1.1",
     "typescript": "^5.2.2"
   },
   "dependencies": {

@@ -7,6 +7,7 @@ import xml2js from 'xml2js';
 import { CONSTANTS } from './constants';
 import { Extension } from './models/extension';
 import { Package } from './models/package';
+import { Manifest } from './types/XmlManifest';
 
 /**
  * Recursively gets paths of extensions inside a directory.
@@ -79,50 +80,59 @@ const getExtensions = async (dirs: string[]): Promise<Extension[]> => {
 
   for (const extensionPath of extensionPaths) {
     const zip = new AdmZip(extensionPath);
-    const extManifest = await parser.parseStringPromise(zip.readAsText('extension.vsixmanifest'));
+    const extManifest: Manifest = await parser.parseStringPromise(zip.readAsText('extension.vsixmanifest'));
     const npmManifest = JSON.parse(zip.readAsText('extension/package.json'));
     const extension = new Extension();
 
-    extension.identity.target = extManifest?.PackageManifest?.Metadata?.Identity?.$?.TargetPlatform || 'any';
+    const PackageManifest = extManifest?.PackageManifest;
+    if (!PackageManifest) continue;
+
+    extension.identity.target = PackageManifest.Metadata?.Identity?.$?.TargetPlatform || 'any';
     if (!isCompatibleTarget(extension.identity.target)) continue;
 
     /* BASE */
-    extension.name = extManifest?.PackageManifest?.Metadata?.DisplayName;
-    extension.id = extManifest?.PackageManifest?.Metadata?.Identity?.$?.Id;
+    extension.name = PackageManifest.Metadata?.DisplayName;
+    extension.id = PackageManifest.Metadata?.Identity?.$?.Id;
     extension.extensionPath = extensionPath;
 
-    const propertiesArray = (extManifest?.PackageManifest?.Metadata?.Properties?.Property as any[]) || [];
+    const propertiesArray = PackageManifest.Metadata?.Properties?.Property || [];
 
     /* IDENTIFY */
-    extension.identity.version = extManifest?.PackageManifest?.Metadata?.Identity?.$?.Version;
-    extension.identity.preRelease = !!propertiesArray.find((prop: any) => prop?.$?.Id === 'Microsoft.VisualStudio.Code.PreRelease');
+    extension.identity.version = PackageManifest.Metadata?.Identity?.$?.Version;
+    extension.identity.preRelease = !!propertiesArray.find(
+      (prop) => prop?.$?.Id === 'Microsoft.VisualStudio.Code.PreRelease',
+    );
     extension.identity.preview = npmManifest?.preview;
     extension.identity.engine = npmManifest?.engines?.vscode;
 
     /* METADATA */
-    extension.metadata.description = extManifest?.PackageManifest?.Metadata?.Description?._;
-    extension.metadata.publisher = extManifest?.PackageManifest?.Metadata?.Identity?.$?.Publisher;
+    extension.metadata.description = PackageManifest.Metadata?.Description?._;
+    extension.metadata.publisher = PackageManifest.Metadata?.Identity?.$?.Publisher;
     extension.metadata.publishedAt = fs.statSync(extensionPath).ctime;
     extension.metadata.identifier = `${extension.metadata.publisher.toLowerCase()}.${extension.id.toLowerCase()}`;
-    extension.metadata.language = extManifest?.PackageManifest?.Metadata?.Identity?.$?.Language || 'en-US';
+    extension.metadata.language = PackageManifest.Metadata?.Identity?.$?.Language || 'en-US';
     extension.metadata.categories = npmManifest.categories || [];
 
     /* ASSETS */
-    const readmePath = (extension.assets.readme = extManifest?.PackageManifest?.Assets?.Asset?.find((asset: any) => asset?.$?.Type === 'Microsoft.VisualStudio.Services.Content.Details')?.$?.Path);
-    const changelogPath = (extension.assets.readme = extManifest?.PackageManifest?.Assets?.Asset?.find(
-      (asset: any) => asset?.$?.Type === 'Microsoft.VisualStudio.Services.Content.Changelog'
-    )?.$?.Path);
-    const imagePath = extManifest?.PackageManifest?.Metadata?.Icon;
+    const readmePath = PackageManifest.Assets?.Asset?.find(
+      (asset) => asset?.$?.Type === 'Microsoft.VisualStudio.Services.Content.Details',
+    )?.$?.Path;
+    const changelogPath = PackageManifest.Assets?.Asset?.find(
+      (asset) => asset?.$?.Type === 'Microsoft.VisualStudio.Services.Content.Changelog',
+    )?.$?.Path;
+    const imagePath = PackageManifest.Metadata?.Icon;
 
     extension.assets.readme = readmePath ? zip.readAsText(readmePath) : '';
     extension.assets.changelog = changelogPath ? zip.readAsText(changelogPath) : '';
-    extension.assets.image = imagePath ? `data:image/png;base64,${Buffer.from(zip.readFile(imagePath) as Buffer).toString('base64')}` : '';
+    extension.assets.image = imagePath
+      ? `data:image/png;base64,${Buffer.from(zip.readFile(imagePath) as Buffer).toString('base64')}`
+      : '';
 
     /* LINKS */
-    extension.links.getStarted = propertiesArray?.find((x) => x?.$?.Id?.endsWith('Links.Getstarted'))?.$?.Value;
-    extension.links.learn = propertiesArray?.find((x) => x?.$?.Id?.endsWith('Links.Learn'))?.$?.Value;
-    extension.links.repository = propertiesArray?.find((x) => x?.$?.Id?.endsWith('Links.Repository'))?.$?.Value;
-    extension.links.support = propertiesArray?.find((x) => x?.$?.Id?.endsWith('Links.Support'))?.$?.Value;
+    extension.links.getStarted = propertiesArray?.find((x) => x?.$?.Id?.endsWith('Links.Getstarted'))?.$?.Value || '';
+    extension.links.learn = propertiesArray?.find((x) => x?.$?.Id?.endsWith('Links.Learn'))?.$?.Value || '';
+    extension.links.repository = propertiesArray?.find((x) => x?.$?.Id?.endsWith('Links.Repository'))?.$?.Value || '';
+    extension.links.support = propertiesArray?.find((x) => x?.$?.Id?.endsWith('Links.Support'))?.$?.Value || '';
 
     extensions.push(extension);
   }
@@ -173,11 +183,15 @@ export const installExtension = async (pkg: Package, ctx: vscode.ExtensionContex
     // Cleanup
     fs.rmSync(copiedExtensionPath);
 
-    vscode.window.showInformationMessage(`Successfully installed ${pkg.extension.id}:v${pkg.extension.identity.version}`);
+    vscode.window.showInformationMessage(
+      `Successfully installed ${pkg.extension.id}:v${pkg.extension.identity.version}`,
+    );
     return pkg.extension.identity.version;
   } catch (err) {
     console.error(err);
-    await vscode.window.showErrorMessage(`Failed to install ${pkg.extension.id}:v${pkg.extension.identity.version} with error ${err}`);
+    await vscode.window.showErrorMessage(
+      `Failed to install ${pkg.extension.id}:v${pkg.extension.identity.version} with error ${err}`,
+    );
   }
 
   return '';
@@ -196,7 +210,9 @@ export const uninstallExtension = async (pkg: Package): Promise<boolean> => {
     vscode.window.showInformationMessage(`Successfully uninstalled ${pkg.extension.id}:v${pkg.installedVersion}`);
     return true;
   } catch (err) {
-    await vscode.window.showErrorMessage(`Failed to uninstall ${pkg.extension.id}:v${pkg.installedVersion} with error ${err}`);
+    await vscode.window.showErrorMessage(
+      `Failed to uninstall ${pkg.extension.id}:v${pkg.installedVersion} with error ${err}`,
+    );
   }
   return false;
 };
@@ -221,7 +237,7 @@ const downloadDirectoryExists = (ctx: vscode.ExtensionContext): string => {
  * @returns A promise resolving to an array of extension source paths.
  */
 export const getExtensionSources = async (): Promise<string[]> => {
-  let paths = (await vscode.workspace.getConfiguration('').get<string[]>(CONSTANTS.propSource)) || [];
+  const paths = (await vscode.workspace.getConfiguration('').get<string[]>(CONSTANTS.propSource)) || [];
   return paths;
 };
 

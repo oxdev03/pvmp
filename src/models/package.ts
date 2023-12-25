@@ -24,7 +24,8 @@ export class Package {
   addExtension(ext: Extension) {
     const existingExtensionIndex = this.extensions.findIndex((e) => e.identity.version === ext.identity.version);
     if (existingExtensionIndex !== -1) {
-      if (ext.metadata.publishedAt > this.extensions[existingExtensionIndex].metadata.publishedAt) this.extensions[existingExtensionIndex] = ext;
+      if (ext.metadata.publishedAt > this.extensions[existingExtensionIndex].metadata.publishedAt)
+        this.extensions[existingExtensionIndex] = ext;
     } else {
       this.extensions.push(ext);
     }
@@ -36,7 +37,9 @@ export class Package {
 
   isUpdateAvailable(): boolean {
     if (!this.installedVersion) return false;
-    const latestVersion = [this.installedVersion, ...this.extensions.map((x) => x.identity.version)].sort((a, b) => (a > b ? -1 : 1));
+    const latestVersion = [this.installedVersion, ...this.extensions.map((x) => x.identity.version)].sort((a, b) =>
+      a > b ? -1 : 1,
+    );
     return latestVersion[0] !== this.installedVersion;
   }
 

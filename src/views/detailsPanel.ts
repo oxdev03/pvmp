@@ -22,7 +22,12 @@ export class DetailsPanel {
     }
 
     // new panel
-    const panel = vscode.window.createWebviewPanel(CONSTANTS.extensionDetailsView, pkg.extension.name, vscode.ViewColumn.One, getWebviewOptions(extensionUri));
+    const panel = vscode.window.createWebviewPanel(
+      CONSTANTS.extensionDetailsView,
+      pkg.extension.name,
+      vscode.ViewColumn.One,
+      getWebviewOptions(extensionUri),
+    );
 
     DetailsPanel.revive(panel, extensionUri);
   }
@@ -57,7 +62,7 @@ export class DetailsPanel {
     });
   }
 
-  private selectVersion(version: any) {
+  private selectVersion(version: string) {
     if (DetailsPanel.currentPkg) {
       const newIndex = DetailsPanel.currentPkg.extensions.findIndex((x) => x.identity.version === version);
       if (newIndex === -1) {
@@ -89,12 +94,14 @@ export class DetailsPanel {
 
     const updateSection =
       pkg.isUpdateAvailable() && pkg.isSelectedNewer()
-        ? `<vscode-button id="updateBtn">Update to ${!pkg.selectedIndex ? 'Latest' : pkg.extension.identity.version}</vscode-button>`
+        ? `<vscode-button id="updateBtn">Update to ${
+            !pkg.selectedIndex ? 'Latest' : pkg.extension.identity.version
+          }</vscode-button>`
         : !pkg.isSelectedNewer()
-        ? `<vscode-button id="updateBtn">Install v${pkg.extension.identity.version}</vscode-button>`
-        : '';
+          ? `<vscode-button id="updateBtn">Install v${pkg.extension.identity.version}</vscode-button>`
+          : '';
 
-    return /* HTML */ `<!DOCTYPE html>
+    return /* HTML */ `<!doctype html>
       <html>
         <head>
           <meta charset="UTF-8" />
@@ -113,9 +120,18 @@ export class DetailsPanel {
                 <div class="title">
                   <h1>${ext.name}</h1>
                   <select class="version-dropdown" id="selectVersion">
-                    ${pkg.extensions.map((x, i) => `<option ${pkg.selectedIndex === i ? 'selected' : ''} value="${x.identity.version}">v${x.identity.version}</option>`).join('\n')}
+                    ${pkg.extensions
+                      .map(
+                        (x, i) =>
+                          `<option ${pkg.selectedIndex === i ? 'selected' : ''} value="${x.identity.version}">v${
+                            x.identity.version
+                          }</option>`,
+                      )
+                      .join('\n')}
                   </select>
-                  ${pkg.extension.identity.preRelease ? '<vscode-tag class="prerelease-tag">Prerelease</vscode-tag>' : ''}
+                  ${pkg.extension.identity.preRelease
+                    ? '<vscode-tag class="prerelease-tag">Prerelease</vscode-tag>'
+                    : ''}
                   ${pkg.extension.identity.preview ? '<vscode-tag class="preview-tag">Preview</vscode-tag>' : ''}
                 </div>
                 <label title="Publisher">${ext.metadata.publisher}</label>
@@ -132,8 +148,12 @@ export class DetailsPanel {
               <vscode-panels>
                 <vscode-panel-tab id="tab-1">DETAILS</vscode-panel-tab>
                 <vscode-panel-tab id="tab-2">CHANGELOG</vscode-panel-tab>
-                <vscode-panel-view id="view-1"><div class="markdown-body">${md.render(ext.assets.readme)}</div></vscode-panel-view>
-                <vscode-panel-view id="view-2"><div class="markdown-body">${md.render(ext.assets.changelog)}</div></vscode-panel-view>
+                <vscode-panel-view id="view-1"
+                  ><div class="markdown-body">${md.render(ext.assets.readme)}</div></vscode-panel-view
+                >
+                <vscode-panel-view id="view-2"
+                  ><div class="markdown-body">${md.render(ext.assets.changelog)}</div></vscode-panel-view
+                >
               </vscode-panels>
             </div>
             <div class="info">
@@ -149,7 +169,8 @@ export class DetailsPanel {
                 <div>
                   ${ext.links.repository ? `<vscode-link href="${ext.links.repository}">Repository</vscode-link>` : ''}
                   ${ext.links.getStarted ? `<vscode-link href="${ext.links.getStarted}">Get Started</vscode-link>` : ''}
-                  ${ext.links.learn ? `<vscode-link href="${ext.links.learn}">Learn</vscode-link>` : ''} ${ext.links.support ? `<vscode-link href="${ext.links.support}">Support</vscode-link>` : ''}
+                  ${ext.links.learn ? `<vscode-link href="${ext.links.learn}">Learn</vscode-link>` : ''}
+                  ${ext.links.support ? `<vscode-link href="${ext.links.support}">Support</vscode-link>` : ''}
                 </div>
               </div>
               <br />

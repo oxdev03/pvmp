@@ -40,10 +40,14 @@ const webviewConfig = {
 /** @type BuildOptions */
 const watchConfig = {
   watch: {
-    onRebuild(error, result) {
+    onRebuild(error) {
       console.log('[watch] build started');
       if (error) {
-        error.errors.forEach((error) => console.error(`> ${error.location.file}:${error.location.line}:${error.location.column}: error: ${error.text}`));
+        error.errors.forEach((error) =>
+          console.error(
+            `> ${error.location.file}:${error.location.line}:${error.location.column}: error: ${error.text}`,
+          ),
+        );
       } else {
         console.log('[watch] build finished');
       }

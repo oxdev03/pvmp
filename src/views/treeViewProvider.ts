@@ -5,7 +5,9 @@ import { Package } from '../models/package';
 import { getExtensionSources, getPackages } from '../utils';
 
 export class TreeViewProvider implements vscode.TreeDataProvider<TreeNode> {
-  private _onDidChangeTreeData: vscode.EventEmitter<TreeNode | undefined | void> = new vscode.EventEmitter<TreeNode | undefined | void>();
+  private _onDidChangeTreeData: vscode.EventEmitter<TreeNode | undefined | void> = new vscode.EventEmitter<
+    TreeNode | undefined | void
+  >();
   readonly onDidChangeTreeData: vscode.Event<TreeNode | undefined | void> = this._onDidChangeTreeData.event;
 
   constructor() {}
@@ -17,7 +19,7 @@ export class TreeViewProvider implements vscode.TreeDataProvider<TreeNode> {
   getTreeItem(element: Package): vscode.TreeItem {
     return new TreeNode(element);
   }
-  getChildren(element?: TreeNode): Thenable<TreeNode[]> {
+  getChildren(): Thenable<TreeNode[]> {
     return this.getData();
   }
 
@@ -32,7 +34,10 @@ class TreeNode extends vscode.TreeItem {
   constructor(pkg: Package) {
     super(pkg.extension.name, vscode.TreeItemCollapsibleState.None);
     this.id = pkg.id;
-    this.iconPath = new vscode.ThemeIcon('extensions', pkg.isUpdateAvailable() ? new vscode.ThemeColor('privateMarketplace.updateIconColor') : undefined);
+    this.iconPath = new vscode.ThemeIcon(
+      'extensions',
+      pkg.isUpdateAvailable() ? new vscode.ThemeColor('privateMarketplace.updateIconColor') : undefined,
+    );
     this.command = {
       command: CONSTANTS.cmdView,
       title: '',
