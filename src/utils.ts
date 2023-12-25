@@ -197,6 +197,13 @@ export const installExtension = async (pkg: Package, ctx: vscode.ExtensionContex
   return '';
 };
 
+/**
+ * Batch updates a list of VS Code extensions.
+ *
+ * @param {Package[]} pkgs - The list of packages to update.
+ * @param {vscode.ExtensionContext} ctx - The VS Code extension context.
+ * @returns {Promise<void>} A promise that resolves once the batch update is complete.
+ */
 export const batchUpdateExtensions = async (pkgs: Package[], ctx: vscode.ExtensionContext): Promise<void> => {
   const downloadDir = downloadDirectoryExists(ctx);
   const failedIds = ((await vscode.workspace.getConfiguration('')?.get(CONSTANTS.propFailedUpdates)) as string[]) || [];
