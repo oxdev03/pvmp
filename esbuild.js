@@ -1,6 +1,7 @@
 const { build } = require('esbuild');
 const fs = require('fs');
 
+if (!fs.existsSync('./out')) fs.mkdirSync('./out');
 fs.copyFileSync('./node_modules/github-markdown-css/github-markdown.css', './out/github-markdown.css');
 
 //@ts-check
