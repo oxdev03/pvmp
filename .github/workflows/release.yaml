@@ -19,7 +19,7 @@ jobs:
           node-version: '18.x'
 
       - name: Install dependencies
-        run: npm install ; ls
+        run: npm install ; ls node_modules
 
       - name: Install vsce
         run: npm install -g @vscode/vsce
