@@ -224,9 +224,10 @@ export const batchUpdateExtensions = async (pkgs: Package[], ctx: vscode.Extensi
     }
   }
 
-  await vscode.workspace
-    .getConfiguration('')
-    ?.update(CONSTANTS.propFailedUpdates, failedIds, vscode.ConfigurationTarget.Global);
+  if (failedIds.length)
+    await vscode.workspace
+      .getConfiguration('')
+      ?.update(CONSTANTS.propFailedUpdates, failedIds, vscode.ConfigurationTarget.Global);
   if (updated) {
     await vscode.commands.executeCommand('workbench.action.reloadWindow');
   }
