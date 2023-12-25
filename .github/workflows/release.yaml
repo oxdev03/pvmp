@@ -31,13 +31,19 @@ jobs:
         id: package_version
         uses: Saionaro/extract-package-version@v1.2.1
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ github.event.repository.name }}.vsix
+          path: |
+            **/*.vsix
+
       - name: Create GitHub Release
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.package_version.outputs.version }}
           generate_release_notes: true
-          token: ${{ secrets.GITHUB_TOKEN }}
           files: |
             **/*.vsix
 
