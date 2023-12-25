@@ -5,6 +5,20 @@
   "version": "0.0.5",
   "icon": "media/assets/icon.png",
   "publisher": "oxdev03",
+  "author": {
+    "name": "oxdev03",
+    "url": "https://github.com/oxdev03"
+  },
+  "bugs": {
+    "url": "https://github.com/oxdev03/pvmp/issues"
+  },
+  "keywords": [
+    "private",
+    "marketplace",
+    "vscode",
+    "extension",
+    "corporate"
+  ],
   "engines": {
     "vscode": "^1.85.0"
   },
