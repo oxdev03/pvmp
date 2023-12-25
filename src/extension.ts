@@ -92,7 +92,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(addDirCmd);
 
-  if (vscode.window.registerWebviewPanelSerializer) {
+  /*   if (vscode.window.registerWebviewPanelSerializer) {
     vscode.window.registerWebviewPanelSerializer(CONSTANTS.extensionDetailsView, {
       async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: any) {
         webviewPanel.webview.options = getWebviewOptions(context.extensionUri);
@@ -100,6 +100,7 @@ export function activate(context: vscode.ExtensionContext) {
       },
     });
   }
+ */
 
   let updateCheckerId: any = undefined;
 
