@@ -13,7 +13,6 @@ import {
 import { DetailsPanel } from './views/detailsPanel';
 import { TreeViewProvider } from './views/treeViewProvider';
 
-// TODO: Auto Update
 // TODO: Markdown local image support using base64
 // TODO: check vscode engine
 
