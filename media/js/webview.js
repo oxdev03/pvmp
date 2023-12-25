@@ -1,7 +1,24 @@
-import { provideVSCodeDesignSystem, vsCodeButton, vsCodeTag, vsCodePanelTab, vsCodePanelView, vsCodePanels, vsCodeDivider, vsCodeLink, vsCodeDropdown, vsCodeOption } from '@vscode/webview-ui-toolkit';
+import {
+  provideVSCodeDesignSystem,
+  vsCodeButton,
+  vsCodeTag,
+  vsCodePanelTab,
+  vsCodePanelView,
+  vsCodePanels,
+  vsCodeDivider,
+  vsCodeLink,
+} from '@vscode/webview-ui-toolkit';
 
 const vscode = acquireVsCodeApi();
-provideVSCodeDesignSystem().register(vsCodeButton(), vsCodeTag(), vsCodePanelTab(), vsCodePanelView(), vsCodePanels(), vsCodeDivider(), vsCodeLink(), vsCodeDropdown(), vsCodeOption());
+provideVSCodeDesignSystem().register(
+  vsCodeButton(),
+  vsCodeTag(),
+  vsCodePanelTab(),
+  vsCodePanelView(),
+  vsCodePanels(),
+  vsCodeDivider(),
+  vsCodeLink(),
+);
 
 window.addEventListener('load', main);
 function main() {
