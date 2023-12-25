@@ -34,7 +34,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ github.event.repository.name }}.vsix
+          name: ${{ github.event.repository.name }}-${{ github.run_id }}.vsix
           path: |
             **/*.vsix
 
@@ -47,7 +47,7 @@ jobs:
           files: |
             **/*.vsix
 
-      #- name: Publish to VS Code Marketplace
-      #  run: npx vsce publish -p ${{ secrets.VSCE_TOKEN }}
-      #  env:
-      #    VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
+      - name: Publish to VS Code Marketplace
+        run: npx vsce publish -p ${{ secrets.VSCE_TOKEN }}
+        env:
+          VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
