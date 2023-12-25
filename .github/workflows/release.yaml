@@ -37,6 +37,7 @@ jobs:
         with:
           tag_name: ${{ steps.package_version.outputs.version }}
           generate_release_notes: true
+          token: ${{ secrets.GITHUB_TOKEN }}
           files: |
             **/*.vsix
 
