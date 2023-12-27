@@ -46,7 +46,7 @@ To configure Private Marketplace, follow these steps:
 
 - The extension searches for extensions in the configured directory (max. depth: 3) and displays them in the private marketplace extension view.
 - Specific versions can be selected using the version dropdown.
-- If the target platform isn't specified, the extension will not be displayed.
+- If the target platform isn't supported, the extension will not be displayed.
 - The published date is based on the last modified date of the extension in the directory.
 - The markdown view doesn't currently support local images.
 
