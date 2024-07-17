@@ -15,6 +15,13 @@ const baseConfig = {
   sourcemap: process.env.NODE_ENV !== 'production',
 };
 
+/** @type BuildOptions */
+const productionConfig = {
+  bundle: true,
+  minify: true,
+  sourcemap: false,
+};
+
 // Config for extension source code (to be run in a Node-based context)
 /** @type BuildOptions */
 const extensionConfig = {
@@ -73,8 +80,12 @@ const watchConfig = {
         ...watchConfig,
       });
       console.log('[watch] build finished');
-    } else {
+    } else if (args.includes('--production')) {
       // Build extension and webview code
+      await build({ ...extensionConfig, ...productionConfig });
+      await build({ ...webviewConfig, ...productionConfig });
+      console.log('build complete');
+    } else {
       await build(extensionConfig);
       await build(webviewConfig);
       console.log('build complete');

@@ -1,3 +1,4 @@
+.github/**
 .vscode/**
 .vscode-test/**
 src/**
@@ -8,6 +9,7 @@ vsc-extension-quickstart.md
 **/.eslintrc.json
 **/*.map
 **/*.ts
+node_modules
 
 media/assets/overview_labeled.png
 media/assets/overview.png
