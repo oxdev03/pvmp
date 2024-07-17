@@ -38,24 +38,24 @@ export function activate(context: vscode.ExtensionContext) {
     if (autoUpdate && length) {
       await batchUpdateExtensions(
         pkgs.filter((x) => x.isUpdateAvailable()),
-        context,
+        context
       );
     }
   });
 
   vscode.commands.registerCommand(CONSTANTS.cmdBatchUpdate, async () => {
-    const packages = await getPackages((await getExtensionSources()) || []);
+    const packages = await getPackages(getExtensionSources() || []);
     const length = packages.filter((x) => x.isUpdateAvailable()).length;
     if (!length) {
       return vscode.window.showInformationMessage('No Updates Available!');
     }
     await batchUpdateExtensions(
       packages.filter((x) => x.isUpdateAvailable()),
-      context,
+      context
     );
   });
 
-  vscode.commands.registerCommand(CONSTANTS.cmdOpenSettings, async () => {
+  vscode.commands.registerCommand(CONSTANTS.cmdOpenSettings, () => {
     vscode.commands.executeCommand('workbench.action.openSettings', `@ext:oxdev03.pvmp`);
   });
 
@@ -118,6 +118,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   if (vscode.window.registerWebviewPanelSerializer) {
     vscode.window.registerWebviewPanelSerializer(CONSTANTS.extensionDetailsView, {
+      // eslint-disable-next-line @typescript-eslint/require-await
       async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel) {
         webviewPanel.webview.options = getWebviewOptions(context.extensionUri);
         DetailsPanel.revive(webviewPanel, context.extensionUri);
@@ -134,7 +135,7 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   startCheckUpdateInterval().then((started) =>
-    started ? console.log(`Started Check Update Interval`) : console.log(`Update Checker is deactivated`),
+    started ? console.log(`Started Check Update Interval`) : console.log(`Update Checker is deactivated`)
   );
 
   async function startCheckUpdateInterval(): Promise<boolean> {
@@ -146,7 +147,7 @@ export function activate(context: vscode.ExtensionContext) {
           console.log('Checking for Updates');
           extensionViewProvider.refresh();
         },
-        1000 * 60 * 60,
+        1000 * 60 * 60
       );
 
       return true;

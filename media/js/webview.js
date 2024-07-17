@@ -1,3 +1,4 @@
+/* eslint-disable */
 import {
   provideVSCodeDesignSystem,
   vsCodeButton,
@@ -17,7 +18,7 @@ provideVSCodeDesignSystem().register(
   vsCodePanelView(),
   vsCodePanels(),
   vsCodeDivider(),
-  vsCodeLink(),
+  vsCodeLink()
 );
 
 window.addEventListener('load', main);

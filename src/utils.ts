@@ -8,6 +8,7 @@ import { CONSTANTS } from './constants';
 import { Extension } from './models/extension';
 import { Package } from './models/package';
 import { Manifest } from './types/XmlManifest';
+import { PackageJson } from './types/PackageJson';
 
 /**
  * Recursively gets paths of extensions inside a directory.
@@ -80,8 +81,8 @@ const getExtensions = async (dirs: string[]): Promise<Extension[]> => {
 
   for (const extensionPath of extensionPaths) {
     const zip = new AdmZip(extensionPath);
-    const extManifest: Manifest = await parser.parseStringPromise(zip.readAsText('extension.vsixmanifest'));
-    const npmManifest = JSON.parse(zip.readAsText('extension/package.json'));
+    const extManifest = (await parser.parseStringPromise(zip.readAsText('extension.vsixmanifest'))) as Manifest;
+    const npmManifest = JSON.parse(zip.readAsText('extension/package.json')) as PackageJson;
     const extension = new Extension();
 
     const PackageManifest = extManifest?.PackageManifest;
@@ -100,10 +101,10 @@ const getExtensions = async (dirs: string[]): Promise<Extension[]> => {
     /* IDENTIFY */
     extension.identity.version = PackageManifest.Metadata?.Identity?.$?.Version;
     extension.identity.preRelease = !!propertiesArray.find(
-      (prop) => prop?.$?.Id === 'Microsoft.VisualStudio.Code.PreRelease',
+      (prop) => prop?.$?.Id === 'Microsoft.VisualStudio.Code.PreRelease'
     );
     extension.identity.preview = npmManifest?.preview;
-    extension.identity.engine = npmManifest?.engines?.vscode;
+    extension.identity.engine = npmManifest?.engines?.vscode || '*';
 
     /* METADATA */
     extension.metadata.description = PackageManifest.Metadata?.Description?._;
@@ -115,10 +116,10 @@ const getExtensions = async (dirs: string[]): Promise<Extension[]> => {
 
     /* ASSETS */
     const readmePath = PackageManifest.Assets?.Asset?.find(
-      (asset) => asset?.$?.Type === 'Microsoft.VisualStudio.Services.Content.Details',
+      (asset) => asset?.$?.Type === 'Microsoft.VisualStudio.Services.Content.Details'
     )?.$?.Path;
     const changelogPath = PackageManifest.Assets?.Asset?.find(
-      (asset) => asset?.$?.Type === 'Microsoft.VisualStudio.Services.Content.Changelog',
+      (asset) => asset?.$?.Type === 'Microsoft.VisualStudio.Services.Content.Changelog'
     )?.$?.Path;
     const imagePath = PackageManifest.Metadata?.Icon;
 
@@ -160,6 +161,8 @@ const isCompatibleTarget = (target: string): boolean => {
  */
 const getExtensionInstalledVersion = (identifier: string): string => {
   const ext = vscode.extensions.getExtension(identifier);
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   return ext?.packageJSON?.version;
 };
 
@@ -175,7 +178,7 @@ export const installExtension = async (pkg: Package, ctx: vscode.ExtensionContex
 
   if (!fs.existsSync(pkg.extension.extensionPath)) {
     await vscode.window.showErrorMessage(
-      `Failed to install ${pkg.extension.id}:v${pkg.extension.identity.version} visx file doesn't exist`,
+      `Failed to install ${pkg.extension.id}:v${pkg.extension.identity.version} visx file doesn't exist`
     );
     return '';
   }
@@ -191,13 +194,13 @@ export const installExtension = async (pkg: Package, ctx: vscode.ExtensionContex
     fs.rmSync(copiedExtensionPath);
 
     vscode.window.showInformationMessage(
-      `Successfully installed ${pkg.extension.id}:v${pkg.extension.identity.version}`,
+      `Successfully installed ${pkg.extension.id}:v${pkg.extension.identity.version}`
     );
     return pkg.extension.identity.version;
-  } catch (err) {
+  } catch (err: unknown) {
     console.error(err);
     await vscode.window.showErrorMessage(
-      `Failed to install ${pkg.extension.id}:v${pkg.extension.identity.version} with error ${err}`,
+      `Failed to install ${pkg.extension.id}:v${pkg.extension.identity.version} with error ${String(err)}`
     );
   }
 
@@ -229,10 +232,10 @@ export const batchUpdateExtensions = async (pkgs: Package[], ctx: vscode.Extensi
       // Cleanup
       fs.rmSync(copiedExtensionPath);
       updated++;
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
       await vscode.window.showErrorMessage(
-        `Failed to install ${pkg.extension.id}:v${pkg.extension.identity.version} with error ${err}`,
+        `Failed to install ${pkg.extension.id}:v${pkg.extension.identity.version} with error ${String(err)}`
       );
       failedIds.push(pkg.extension.id + pkg.extension.identity.version);
     }
@@ -261,7 +264,7 @@ export const uninstallExtension = async (pkg: Package): Promise<boolean> => {
     return true;
   } catch (err) {
     await vscode.window.showErrorMessage(
-      `Failed to uninstall ${pkg.extension.id}:v${pkg.installedVersion} with error ${err}`,
+      `Failed to uninstall ${pkg.extension.id}:v${pkg.installedVersion} with error ${String(err)}`
     );
   }
   return false;
@@ -283,12 +286,27 @@ const downloadDirectoryExists = (ctx: vscode.ExtensionContext): string => {
 };
 
 /**
- * Gets the extension sources configured in VSCode settings.
- * @returns A promise resolving to an array of extension source paths.
+ * Resolves VSCode variables like ${workspaceFolder} in a given path.
+ * @param inputPath The path that may contain VSCode variables.
+ * @returns The path with VSCode variables resolved to actual values.
  */
-export const getExtensionSources = async (): Promise<string[]> => {
-  const paths = (await vscode.workspace.getConfiguration('').get<string[]>(CONSTANTS.propSource)) || [];
-  return paths;
+const resolveVariables = (inputPath: string): string => {
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+
+  const replacements: { [key: string]: string } = {
+    '${workspaceFolder}': workspaceFolder,
+  };
+
+  return inputPath.replace(/\$\{[^}]+\}/g, (match) => replacements[match] || match);
+};
+
+/**
+ * Gets the extension sources configured in VSCode settings.
+ * @returns an array of extension source paths.
+ */
+export const getExtensionSources = (): string[] => {
+  const paths = vscode.workspace.getConfiguration('').get<string[]>(CONSTANTS.propSource) || [];
+  return paths.map(resolveVariables);
 };
 
 export const getWebviewOptions = (extensionUri: vscode.Uri): vscode.WebviewOptions => {

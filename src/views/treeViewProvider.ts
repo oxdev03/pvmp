@@ -24,7 +24,7 @@ export class TreeViewProvider implements vscode.TreeDataProvider<TreeNode> {
   }
 
   async getData(): Promise<Package[]> {
-    const packages = await getPackages((await getExtensionSources()) || []);
+    const packages = await getPackages(getExtensionSources() || []);
     vscode.commands.executeCommand(CONSTANTS.cmdUpdateBadge, packages);
     return packages;
   }
@@ -36,7 +36,7 @@ class TreeNode extends vscode.TreeItem {
     this.id = pkg.id;
     this.iconPath = new vscode.ThemeIcon(
       'extensions',
-      pkg.isUpdateAvailable() ? new vscode.ThemeColor('privateMarketplace.updateIconColor') : undefined,
+      pkg.isUpdateAvailable() ? new vscode.ThemeColor('privateMarketplace.updateIconColor') : undefined
     );
     this.command = {
       command: CONSTANTS.cmdView,

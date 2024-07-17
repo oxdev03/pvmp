@@ -5,6 +5,11 @@ import { CONSTANTS } from '../constants';
 import { Package } from '../models/package';
 import { getWebviewOptions } from '../utils';
 
+type WebViewMessage = {
+  command: string;
+  version?: string;
+};
+
 export class DetailsPanel {
   public static currentPanel?: DetailsPanel;
   private static currentPkg?: Package;
@@ -26,7 +31,7 @@ export class DetailsPanel {
       CONSTANTS.extensionDetailsView,
       pkg.extension.name,
       vscode.ViewColumn.One,
-      getWebviewOptions(extensionUri),
+      getWebviewOptions(extensionUri)
     );
 
     DetailsPanel.revive(panel, extensionUri);
@@ -44,10 +49,10 @@ export class DetailsPanel {
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
     // handle messages from webview
-    this._panel.webview.onDidReceiveMessage((message) => {
+    this._panel.webview.onDidReceiveMessage((message: WebViewMessage) => {
       switch (message.command) {
         case CONSTANTS.msgSelectVersion:
-          this.selectVersion(message.version);
+          this.selectVersion(message.version || '');
           break;
         case CONSTANTS.msgInstall:
           if (DetailsPanel.currentPkg) vscode.commands.executeCommand(CONSTANTS.cmdInstall, DetailsPanel.currentPkg);
@@ -107,8 +112,8 @@ export class DetailsPanel {
           <meta charset="UTF-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <title>${ext.name}</title>
-          <link href="${styleMain}" rel="stylesheet" />
-          <link href="${styleGithub}" rel="stylesheet" />
+          <link href="${styleMain.toString()}" rel="stylesheet" />
+          <link href="${styleGithub.toString()}" rel="stylesheet" />
         </head>
         <body>
           <div class="container">
@@ -125,7 +130,7 @@ export class DetailsPanel {
                         (x, i) =>
                           `<option ${pkg.selectedIndex === i ? 'selected' : ''} value="${x.identity.version}">v${
                             x.identity.version
-                          }</option>`,
+                          }</option>`
                       )
                       .join('\n')}
                   </select>
@@ -198,7 +203,7 @@ export class DetailsPanel {
               </div>
             </div>
           </div>
-          <script nonce="${nonce}" src="${webviewScript}" type="module"></script>
+          <script nonce="${nonce}" src="${webviewScript.toString()}" type="module"></script>
         </body>
       </html>`;
   }
