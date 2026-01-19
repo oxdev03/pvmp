@@ -1,3 +1,14 @@
+/* VS Code Theme Variables */
+body {
+  background-color: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  font-weight: var(--vscode-font-weight);
+  margin: 0;
+  padding: 0;
+}
+
 .container {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1.2fr;
@@ -13,6 +24,8 @@
   margin-right: 10vw;
   margin-left: 10vw;
   max-height: 100vh;
+  background-color: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
 }
 
 .head {
@@ -79,6 +92,7 @@
   margin: 0px;
   margin-bottom: 0.5em;
   margin-top: 0.5em;
+  color: var(--vscode-editor-foreground);
 }
 
 .info .categories div {
@@ -90,6 +104,19 @@
 .info .more-info table {
   width: 100%;
   font-size: 13px;
+  color: var(--vscode-editor-foreground);
+}
+
+.info .more-info table td {
+  padding: 2px 4px;
+  border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+}
+
+.info .more-info table td.package-source {
+  word-break: break-word;
+  max-width: 300px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
 }
 
 .resources div {
@@ -99,9 +126,9 @@
 
 .version-dropdown {
   padding: 2px;
-  border: none;
-  background-color: rgba(128, 128, 128, 0.17);
-  color: rgb(204, 204, 204);
+  border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+  background-color: var(--vscode-dropdown-background);
+  color: var(--vscode-dropdown-foreground);
   border-radius: 4px;
   font-size: 12px;
   cursor: pointer;
@@ -111,26 +138,94 @@
 }
 
 .version-dropdown:hover {
-  background-color: rgba(141, 140, 140, 0.27);
+  background-color: var(--vscode-dropdown-listBackground);
 }
 
 .version-dropdown:focus {
-  outline: none;
+  outline: 1px solid var(--vscode-focusBorder);
 }
 
 .version-dropdown option {
-  background: #4a4949 !important;
-  color: rgb(204, 204, 204);
+  background: var(--vscode-dropdown-background) !important;
+  color: var(--vscode-dropdown-foreground);
 }
 
 .markdown-body {
   overflow-y: scroll;
   width: 100%;
+  background-color: transparent !important;
+  color: var(--vscode-editor-foreground) !important;
 }
 
 .markdown-body,
 [data-theme='dark'] {
   --color-canvas-default: transparent !important;
+}
+
+/* Override GitHub markdown styles to use VS Code theme */
+.markdown-body h1, .markdown-body h2, .markdown-body h3, 
+.markdown-body h4, .markdown-body h5, .markdown-body h6 {
+  color: var(--vscode-editor-foreground) !important;
+  border-bottom-color: var(--vscode-widget-border, var(--vscode-panel-border)) !important;
+}
+
+.markdown-body p, .markdown-body li, .markdown-body span {
+  color: var(--vscode-editor-foreground) !important;
+}
+
+.markdown-body code {
+  background-color: var(--vscode-textCodeBlock-background) !important;
+  color: var(--vscode-textPreformat-foreground) !important;
+}
+
+.markdown-body pre {
+  background-color: var(--vscode-textCodeBlock-background) !important;
+}
+
+.markdown-body blockquote {
+  border-left-color: var(--vscode-widget-border, var(--vscode-panel-border)) !important;
+  color: var(--vscode-editor-foreground) !important;
+}
+
+/* Links */
+.markdown-body a, a {
+  color: var(--vscode-textLink-foreground) !important;
+  text-decoration: none;
+}
+
+.markdown-body a:hover, a:hover {
+  color: var(--vscode-textLink-activeForeground) !important;
+  text-decoration: underline;
+}
+
+/* Badges and inline elements */
+.badge, .label {
+  background-color: var(--vscode-badge-background) !important;
+  color: var(--vscode-badge-foreground) !important;
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Tables in markdown */
+.markdown-body table {
+  border-color: var(--vscode-widget-border, var(--vscode-panel-border)) !important;
+}
+
+.markdown-body table th,
+.markdown-body table td {
+  border-color: var(--vscode-widget-border, var(--vscode-panel-border)) !important;
+  color: var(--vscode-editor-foreground) !important;
+}
+
+.markdown-body table th {
+  background-color: var(--vscode-editor-lineHighlightBackground) !important;
+}
+
+/* Horizontal rules */
+.markdown-body hr {
+  border-color: var(--vscode-widget-border, var(--vscode-panel-border)) !important;
 }
 
 .panel vscode-panels {

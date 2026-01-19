@@ -77,6 +77,11 @@
         "icon": "$(folder)"
       },
       {
+        "command": "pvmp.addAtomFeed",
+        "title": "Add Atom Feed",
+        "icon": "$(globe)"
+      },
+      {
         "command": "pvmp.openSettings",
         "title": "Open Settings",
         "icon": "$(gear)"
@@ -104,7 +109,7 @@
     "viewsWelcome": [
       {
         "view": "pvmp-extensions",
-        "contents": "No Extensions Found!\n[Add Directory Source](command:pvmp.addSource)"
+        "contents": "No Extensions Found!\n[Add Directory Source](command:pvmp.addSource)\n[Add Atom Feed](command:pvmp.addAtomFeed)"
       }
     ],
     "configuration": [
@@ -118,7 +123,7 @@
               "type": "string"
             },
             "order": 0,
-            "description": "list of directory sources."
+            "description": "List of extension sources. Can be local directory paths or Atom feed URLs (e.g., http://localhost:8624/feeds/vscode-extensions/atom.xml)."
           }
         }
       },
@@ -169,6 +174,11 @@
           "group": "navigation"
         },
         {
+          "command": "pvmp.addAtomFeed",
+          "when": "view == pvmp-extensions",
+          "group": "navigation"
+        },
+        {
           "command": "pvmp.addSource",
           "when": "view == pvmp-extensions",
           "group": "navigation"
@@ -212,13 +222,13 @@
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json"
   },
   "devDependencies": {
-    "@types/adm-zip": "^0.5.5",
-    "@types/markdown-it": "^14.1.1",
-    "@types/xml2js": "^0.4.14",
     "@eslint/js": "^9.5.0",
+    "@types/adm-zip": "^0.5.5",
     "@types/eslint__js": "^8.42.3",
+    "@types/markdown-it": "^14.1.1",
     "@types/node": "20.x",
     "@types/vscode": "^1.90.0",
+    "@types/xml2js": "^0.4.14",
     "esbuild": "^0.16.17",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",

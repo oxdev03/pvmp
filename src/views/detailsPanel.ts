@@ -1,9 +1,11 @@
 import markdownit from 'markdown-it';
 import * as vscode from 'vscode';
+import * as path from 'path';
 
 import { CONSTANTS } from '../constants';
 import { Package } from '../models/package';
-import { getWebviewOptions } from '../utils';
+import { getAllInstalledExtensions, getWebviewOptions } from '../utils';
+import { AtomService } from '../services/atomService';
 
 type WebViewMessage = {
   command: string;
@@ -18,11 +20,20 @@ export class DetailsPanel {
   private readonly _extensionUri: vscode.Uri;
   private _disposables: vscode.Disposable[] = [];
 
+  /**
+   * Checks if the details panel is currently showing the specified package
+   */
+  public static isShowingPackage(pkg: Package): boolean {
+    return DetailsPanel.currentPkg?.id === pkg.id;
+  }
+
   public static show(pkg: Package, extensionUri: vscode.Uri) {
     DetailsPanel.currentPkg = pkg;
 
     if (DetailsPanel.currentPanel) {
       DetailsPanel.currentPanel._panel.reveal(vscode.window?.activeTextEditor?.viewColumn);
+      // Update with current package state (including fresh installed version check)
+      DetailsPanel.currentPanel.update(pkg);
       return;
     }
 
@@ -39,6 +50,10 @@ export class DetailsPanel {
 
   public static revive(panel: vscode.WebviewPanel, uri: vscode.Uri) {
     DetailsPanel.currentPanel = new DetailsPanel(panel, uri);
+    // Initialize with current package data if available
+    if (DetailsPanel.currentPkg) {
+      DetailsPanel.currentPanel.update(DetailsPanel.currentPkg);
+    }
   }
 
   private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
@@ -81,7 +96,100 @@ export class DetailsPanel {
   public update(pkg: Package) {
     DetailsPanel.currentPkg = pkg;
     this._panel.title = pkg.extension.name;
+    
+    // Get all installed extensions and check for matches
+    const installedExtensions = getAllInstalledExtensions();
+    const matchingExtension = this.findMatchingInstalledExtension(pkg, installedExtensions);
+    
+    if (matchingExtension) {
+      pkg.installedVersion = matchingExtension.version;
+      // Update the package metadata with the correct identifier for future operations
+      pkg.extension.metadata.identifier = matchingExtension.identifier;
+      pkg.extension.metadata.publisher = matchingExtension.publisher;
+      console.log(`Found installed extension: ${matchingExtension.identifier} v${matchingExtension.version}`);
+    } else {
+      pkg.installedVersion = '';
+    }
+    
     this._panel.webview.html = this._getHtmlForWebView(this._panel.webview, pkg);
+  }
+
+  /**
+   * Directly updates the install status without re-checking VS Code's extension registry
+   * Used when we know for certain an extension was just installed/uninstalled
+   */
+  public updateInstallStatus(pkg: Package, installed: boolean, version: string = '') {
+    DetailsPanel.currentPkg = pkg;
+    
+    // Directly set the install status without checking VS Code's registry
+    if (installed) {
+      pkg.installedVersion = version;
+      console.log(`Details panel: Set as installed v${version}`);
+    } else {
+      pkg.installedVersion = '';
+      pkg.extension.metadata.identifier = '';
+      console.log(`Details panel: Set as uninstalled`);
+    }
+    
+    // Update the webview with the new status
+    this._panel.webview.html = this._getHtmlForWebView(this._panel.webview, pkg);
+  }
+
+  /**
+   * Finds a matching installed extension for the given package
+   */
+  private findMatchingInstalledExtension(pkg: Package, installedExtensions: Array<{publisher: string, name: string, version: string, identifier: string}>) {
+    const packageName = pkg.extension.name.toLowerCase();
+    const packageId = pkg.extension.id.toLowerCase();
+    
+    // Try multiple matching strategies
+    for (const installed of installedExtensions) {
+      const installedName = installed.name.toLowerCase();
+      
+      // Strategy 1: Direct name match
+      if (packageName === installedName) {
+        return installed;
+      }
+      
+      // Strategy 2: Package ID matches extension name
+      if (packageId === installedName) {
+        return installed;
+      }
+      
+      // Strategy 3: Match extension name part after the first dot (publisher.extensionname)
+      const packageExtensionName = pkg.extension.metadata.identifier.includes('.') 
+        ? pkg.extension.metadata.identifier.split('.').slice(1).join('.').toLowerCase()
+        : packageId;
+      const installedExtensionName = installed.identifier.includes('.') 
+        ? installed.identifier.split('.').slice(1).join('.').toLowerCase()
+        : installedName;
+      
+      if (packageExtensionName === installedExtensionName) {
+        return installed;
+      }
+      
+      // Strategy 4: Remove common prefixes/suffixes and compare
+      const cleanPackageName = packageName.replace(/[-_](vscode|extension|ext)$/, '').replace(/^(vscode|ext)[-_]/, '');
+      const cleanInstalledName = installedName.replace(/[-_](vscode|extension|ext)$/, '').replace(/^(vscode|ext)[-_]/, '');
+      
+      if (cleanPackageName === cleanInstalledName) {
+        return installed;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Gets the current installed version of an extension from VS Code
+   */
+  private getCurrentInstalledVersion(identifier: string): string {
+    const ext = vscode.extensions.getExtension(identifier);
+    if (!ext?.packageJSON) return '';
+    
+    // Safely extract version
+    const version = ext.packageJSON.version;
+    return typeof version === 'string' ? version : '';
   }
 
   private _getHtmlForWebView(webview: vscode.Webview, pkg: Package): string {
@@ -199,6 +307,10 @@ export class DetailsPanel {
                     <td>Platform</td>
                     <td>${pkg.extension.identity.target}</td>
                   </tr>
+                  <tr>
+                    <td>Package Source</td>
+                    <td class="package-source" title="${ext.extensionPath}">${this.formatPackageSource(ext.extensionPath)}</td>
+                  </tr>
                 </table>
               </div>
             </div>
@@ -206,6 +318,27 @@ export class DetailsPanel {
           <script nonce="${nonce}" src="${webviewScript.toString()}" type="module"></script>
         </body>
       </html>`;
+  }
+
+  /**
+   * Formats the package source for display
+   * @param extensionPath The extension path or URL
+   * @returns Formatted source string
+   */
+  private formatPackageSource(extensionPath: string): string {
+    if (AtomService.isAtomFeedUrl(extensionPath) || extensionPath.startsWith('http')) {
+      // For Atom feed URLs, extract the base URL for cleaner display
+      try {
+        const url = new URL(extensionPath);
+        return `Atom Feed (${url.host})`;
+      } catch {
+        return 'Atom Feed';
+      }
+    } else {
+      // For local paths, show the directory name
+      const dirName = path.basename(path.dirname(extensionPath));
+      return `Local Directory (${dirName})`;
+    }
   }
 
   public dispose() {
