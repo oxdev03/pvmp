@@ -1,50 +1,31 @@
-import { gzipSync } from 'fflate';
-import { createTar } from 'nanotar';
 import { describe, expect, it } from 'vitest';
 
 import { ManifestError } from './errors.ts';
 import { normalizeEntryName } from './tar.ts';
 import { readIconFromStream, readPvmpTarball } from './tarball.ts';
+import {
+  buildPvmpTarball,
+  buildRawTar,
+  incompressibleBytes,
+  packageJsonFixture,
+  PNG_MAGIC,
+} from './testing.ts';
 
 const encoder = new TextEncoder();
 
-const PACKAGE_JSON = {
-  name: '@corp/vsc-lint',
-  version: '1.4.0',
-  description: 'Lints things',
-  engines: { vscode: '^1.96.0' },
-  pvmp: { extensionId: 'acme.lint', displayName: 'Corp Lint' },
-};
-
-/**
- * Deterministic pseudo-random filler. A real vsix is a zip and therefore
- * incompressible; filling with a constant byte would gzip away to nothing and
- * make the early-abort assertion meaningless.
- */
-function incompressible(length: number): Uint8Array {
-  const bytes = new Uint8Array(length);
-  let state = 0x2545_f491;
-  for (let i = 0; i < length; i++) {
-    state ^= state << 13;
-    state ^= state >>> 17;
-    state ^= state << 5;
-    bytes[i] = state & 0xff;
-  }
-  return bytes;
-}
+const PACKAGE_JSON = packageJsonFixture();
 
 /** Builds a tarball in the pvmp layout: metadata first, vsix last (SPEC §2.1). */
 function buildTarball(options: { vsixBytes?: number; metadataFirst?: boolean } = {}) {
   const { vsixBytes = 2048, metadataFirst = true } = options;
-  const metadata = [
-    { name: 'package/package.json', data: encoder.encode(JSON.stringify(PACKAGE_JSON)) },
-    { name: 'package/icon.png', data: new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]) },
-    { name: 'package/README.md', data: encoder.encode('# Corp Lint\n') },
-    { name: 'package/CHANGELOG.md', data: encoder.encode('## 1.4.0\n') },
-  ];
-  const vsix = { name: 'package/extension.vsix', data: incompressible(vsixBytes) };
-  const files = metadataFirst ? [...metadata, vsix] : [vsix, ...metadata];
-  return gzipSync(createTar(files));
+  return buildPvmpTarball({
+    packageJson: PACKAGE_JSON,
+    icon: new Uint8Array([...PNG_MAGIC, 1, 2, 3]),
+    readme: '# Corp Lint\n',
+    changelog: '## 1.4.0\n',
+    vsix: incompressibleBytes(vsixBytes),
+    vsixFirst: !metadataFirst,
+  });
 }
 
 describe('normalizeEntryName', () => {
@@ -75,11 +56,7 @@ describe('readPvmpTarball', () => {
   });
 
   it('omits entries the package does not ship', () => {
-    const tarball = gzipSync(
-      createTar([
-        { name: 'package/package.json', data: encoder.encode(JSON.stringify(PACKAGE_JSON)) },
-      ]),
-    );
+    const tarball = buildPvmpTarball({ packageJson: PACKAGE_JSON });
     const result = readPvmpTarball(tarball, 'test.tgz');
     expect(result.vsix).toBeUndefined();
     expect(result.readme).toBeUndefined();
@@ -87,9 +64,7 @@ describe('readPvmpTarball', () => {
   });
 
   it('rejects a tarball with no package.json', () => {
-    const tarball = gzipSync(
-      createTar([{ name: 'package/README.md', data: encoder.encode('hi') }]),
-    );
+    const tarball = buildRawTar([{ name: 'package/README.md', data: encoder.encode('hi') }]);
     expect(() => readPvmpTarball(tarball, 'bad.tgz')).toThrow(ManifestError);
   });
 
@@ -100,9 +75,7 @@ describe('readPvmpTarball', () => {
   });
 
   it('rejects a package.json that is not valid JSON', () => {
-    const tarball = gzipSync(
-      createTar([{ name: 'package/package.json', data: encoder.encode('{ oops') }]),
-    );
+    const tarball = buildRawTar([{ name: 'package/package.json', data: encoder.encode('{ oops') }]);
     expect(() => readPvmpTarball(tarball, 'bad.tgz')).toThrow(/not valid JSON/);
   });
 });
@@ -154,9 +127,7 @@ describe('readIconFromStream', () => {
   });
 
   it('returns undefined when the package ships no icon', async () => {
-    const tarball = gzipSync(
-      createTar([{ name: 'package/package.json', data: encoder.encode('{}') }]),
-    );
+    const tarball = buildRawTar([{ name: 'package/package.json', data: encoder.encode('{}') }]);
     const { stream } = countingStream(tarball, 512);
     await expect(readIconFromStream(stream)).resolves.toBeUndefined();
   });

@@ -9,5 +9,8 @@
   "dependencies": {
     "@pvmp/contract": "workspace:*",
     "@pvmp/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@pvmp/core": "workspace:*"
   }
 }

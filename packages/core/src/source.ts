@@ -20,6 +20,11 @@ export interface SourceDeps {
   getToken(sourceId: string): Promise<string | undefined>;
   /** Expands ${userHome} and ${workspaceFolder} in configured paths. */
   resolvePath(input: string): string;
+  /**
+   * Watches a directory subtree, calling back on any change. Returns a
+   * disposer. Provided by the host (FileSystemWatcher); absent in tests.
+   */
+  watch?(root: string, onChange: () => void): () => void;
 }
 
 export interface SourceCall {

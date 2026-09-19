@@ -28,14 +28,22 @@ export interface FileStat {
   type: 'file' | 'directory';
 }
 
-/** In-memory FileStore for tests. */
+/**
+ * In-memory FileStore for tests.
+ *
+ * mtime advances by at least 1ms per write. A real filesystem does this; using
+ * a bare Date.now() here would stamp writes in the same tick identically and
+ * make mtime-keyed cache invalidation look broken when it is not.
+ */
 export function createMemoryFileStore(uriPrefix = 'memfs://'): FileStore {
   const files = new Map<string, { data: Uint8Array; mtime: number }>();
+  let clock = Date.now();
+  const tick = () => (clock = Math.max(clock + 1, Date.now()));
 
   return {
     read: (path) => Promise.resolve(files.get(path)?.data),
     write: (path, data) => {
-      files.set(path, { data, mtime: Date.now() });
+      files.set(path, { data, mtime: tick() });
       return Promise.resolve();
     },
     remove: (path) => {
