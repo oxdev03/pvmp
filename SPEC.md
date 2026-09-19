@@ -520,35 +520,73 @@ Array order is source priority (§4.4). Tokens never appear here.
 
 ## 17. Known risks
 
-1. **JFrog and Nexus adapters are fixture-verified, not live-verified.** Only
-   Verdaccio is exercised against a real server. Validate both against a real
-   instance before announcing support.
-2. **Install target in remote contexts.** `workbench.extensions.installExtension`
-   with a `Uri`, under `extensionKind: ["workspace","ui"]`, needs manual
-   verification in a devcontainer and in code-server that the extension lands on
-   the intended host. Verify this early — it invalidates §8 if wrong.
-3. **oxfmt is pre-1.0** (0.68.0). Pinned exactly; expect occasional formatting
-   churn on upgrade.
-4. **Visual-diff flakiness.** Font rendering differs across OS and CI. Goldens
-   must be generated in the same container that runs the assertions.
-5. **Icon fetch cost** depends on publishers honoring §2.1 tarball ordering. If
-   they don't, the list pulls full tarballs. Revisit the embedded-icon option if
-   this bites.
-6. **No search in v2** with a full client-side catalog already loaded — a
-   substring filter is ~15 lines. Deferred by choice, cheap to reverse.
+Status as implemented.
+
+1. **JFrog and Nexus adapters are fixture-verified, not live-verified.**
+   *Open.* Verdaccio has a real container test covering list → packument →
+   tarball → vsix. JFrog and Nexus are tested against recorded response
+   shapes only. Validate both against a real instance before announcing
+   support.
+2. **Install target in remote contexts.** *Open, and the one to resolve
+   first.* `workbench.extensions.installExtension` with a `Uri` under
+   `extensionKind: ["workspace","ui"]` has not been run in a real devcontainer
+   or code-server, so it is unproven that the extension lands on the intended
+   host. If it does not, §8 changes.
+3. **oxfmt is pre-1.0** (0.68.0). *Accepted.* Pinned exactly, as is oxlint.
+4. **Visual-diff flakiness.** *Handled.* Goldens are generated in the
+   Playwright container by `apps/webview/scripts/update-visual-goldens.sh`,
+   CI asserts inside that same image, and the pixel assertions skip elsewhere
+   with a message. `--check` re-verifies without rewriting.
+5. **Icon fetch cost** depends on publishers honoring §2.1 tarball ordering.
+   *Mitigated, still a dependency on publishers.* The streaming reader aborts
+   as soon as `icon.png` is complete; a test asserts a 525KB fixture costs
+   under 16KB. A wrongly-ordered tarball downloads in full rather than
+   breaking.
+6. **No search in v2.** *Deferred by choice.* The catalog is already fully
+   client-side, so a substring filter is roughly 15 lines.
+
+## 18. Implementation notes
+
+Where the build departed from, or went beyond, the sections above.
+
+- **CSP script-src carries a nonce *and* `webview.cspSource`** (§7.7 said
+  nonce only). A nonce does not propagate to statically imported ES modules,
+  and the entry bundles import a shared chunk. `localResourceRoots` confines
+  that origin to `dist/` and `globalStorage`, so nothing else is reachable
+  through it.
+- **Icons are published by the host** to `globalStorage/icons/<key>.png` and
+  handed to the webview as an `asWebviewUri`. The source's own cache key is
+  private to the source, so the host owns a path it can name.
+- **Typecheck is split** into `tsconfig.node.json` and `tsconfig.web.json`, so
+  host code cannot reach DOM globals and webview code cannot reach node ones.
+  `contract` is checked under both.
+- **The extension's workspace package is named `pvmp`**, not
+  `@pvmp/extension`: its `package.json` is the VS Code manifest, and vsce
+  rejects a scoped name.
+- **A bundle smoke test was added** (`apps/extension/bundle.integration.test.ts`).
+  It loads `dist/extension.cjs` with a stubbed `vscode`, activates it, and
+  asserts every command in the manifest is registered. It is a partial,
+  much cheaper stand-in for the `@vscode/test-cli` layer §13 skips.
+- **Production builds emit no sourcemap.** vsce's ignore rules did not
+  reliably exclude a re-included path, so the map is simply not produced;
+  `pnpm --filter pvmp watch` still emits one.
+
+## 19. Sequencing
 
 ---
 
-## 18. Sequencing
+1. ~~Orphan branch, pnpm workspace skeleton, tooling, CI.~~ done
+2. ~~`contract` + IPC transport + its unit tests.~~ done
+3. ~~`core`: tarball reader, semver resolution, cache.~~ done
+4. ~~`source-local` + watcher.~~ done
+5. ~~Webview shell, Tailwind v4 theme port, mock host, Playwright.~~ done
+6. ~~Sidebar to pixel spec + visual goldens.~~ done
+7. ~~Details panel to pixel spec, markdown + CSP.~~ done
+8. ~~`source-npm` + Verdaccio adapter + live integration test.~~ done
+9. ~~JFrog and Nexus adapters + fixtures.~~ done
+10. ~~Install/update/uninstall orchestration, globalState, error banner.~~ done
+11. ~~Release pipeline, docs, format specification.~~ done
 
-1. Orphan branch, pnpm workspace skeleton, tooling, CI.
-2. `contract` + IPC transport + its unit tests.
-3. `core`: tarball reader, semver resolution, cache. Vitest throughout.
-4. `source-local` + watcher. First end-to-end path with no network.
-5. Webview shell, Tailwind v4 theme port, mock host, Playwright baseline.
-6. Sidebar to pixel spec + visual goldens.
-7. Details panel to pixel spec, markdown + CSP.
-8. `source-npm` + Verdaccio adapter + live integration test.
-9. JFrog and Nexus adapters + fixtures.
-10. Install/update/uninstall orchestration, globalState, error banner.
-11. Release pipeline, docs, format specification.
+Remaining before a release: resolve risk 2 in a real devcontainer and
+code-server, and validate the JFrog and Nexus adapters against real
+instances (risk 1).
