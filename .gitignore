@@ -20,3 +20,5 @@ blob-report/
 
 # playwright mcp scratch
 .playwright-mcp/
+.samples/
+dev-workspace/

@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/apps/extension",
+        "--disable-extensions",
+        "${workspaceFolder}/dev-workspace"
+      ],
+      "outFiles": ["${workspaceFolder}/apps/extension/dist/**/*.cjs"],
+      "preLaunchTask": "build",
+      "env": {
+        "VSCODE_DEBUG_MODE": "true"
+      }
+    },
+    {
+      "name": "Run Extension (watch)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/apps/extension",
+        "--disable-extensions",
+        "${workspaceFolder}/dev-workspace"
+      ],
+      "outFiles": ["${workspaceFolder}/apps/extension/dist/**/*.cjs"],
+      "preLaunchTask": "watch"
+    }
+  ]
+}
