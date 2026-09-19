@@ -130,8 +130,9 @@ async function collectTarballs(files: FileStore, root: string, depth: number): P
   let frontier = [root];
 
   for (let level = 0; level < depth && frontier.length > 0; level++) {
-    // oxlint-disable-next-line no-await-in-loop -- each BFS level must resolve
-    // before the next is known; within a level the listings already run in parallel.
+    // Each BFS level must resolve before the next is known; within a level the
+    // listings already run in parallel.
+    // oxlint-disable-next-line no-await-in-loop
     const listings = await Promise.all(frontier.map((dir) => files.list(dir)));
     const next: string[] = [];
 

@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "e2e": "playwright test",
     "e2e:update": "playwright test --update-snapshots",
-    "e2e:ui": "playwright test --ui"
+    "e2e:ui": "playwright test --ui",
+    "e2e:visual": "./scripts/update-visual-goldens.sh"
   },
   "dependencies": {
     "@pvmp/contract": "workspace:*",

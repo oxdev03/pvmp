@@ -1,0 +1,136 @@
+@import 'tailwindcss';
+@import './vscode-theme.css';
+
+/*
+ * VS Code sets font family and size on the webview body from the user's
+ * settings. Inheriting them is what makes a webview feel native, so the
+ * preflight reset must not override them.
+ */
+@layer base {
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+    font-weight: var(--vscode-font-weight);
+    color: var(--vscode-foreground);
+    background-color: transparent;
+  }
+
+  /* VS Code renders its own scrollbars in webviews; match them. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--vscode-scrollbarSlider-background);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--vscode-scrollbarSlider-hoverBackground);
+  }
+  ::-webkit-scrollbar-thumb:active {
+    background-color: var(--vscode-scrollbarSlider-activeBackground);
+  }
+
+  *:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: -1px;
+  }
+}
+
+/*
+ * Markdown bodies. VS Code's extension editor renders README content with
+ * these proportions; Tailwind's preflight strips them, so they come back here
+ * rather than as utilities on elements we do not author.
+ */
+@layer components {
+  /*
+   * Markdown headings render one level down (see Markdown.tsx), so the sizes
+   * are shifted to match: an h2 here is the README's `#`.
+   */
+  .pvmp-markdown h2 {
+    font-size: 24px;
+    font-weight: 600;
+    margin: 0 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--vscode-panel-border);
+  }
+  .pvmp-markdown h3 {
+    font-size: 19px;
+    font-weight: 600;
+    margin: 24px 0 12px;
+  }
+  .pvmp-markdown h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 20px 0 10px;
+  }
+  .pvmp-markdown h5,
+  .pvmp-markdown h6 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 16px 0 8px;
+  }
+  .pvmp-markdown p,
+  .pvmp-markdown ul,
+  .pvmp-markdown ol,
+  .pvmp-markdown table {
+    margin: 0 0 14px;
+  }
+  .pvmp-markdown ul,
+  .pvmp-markdown ol {
+    padding-left: 24px;
+    list-style: revert;
+  }
+  .pvmp-markdown a {
+    color: var(--vscode-textLink-foreground);
+    text-decoration: none;
+  }
+  .pvmp-markdown a:hover {
+    color: var(--vscode-textLink-activeForeground);
+    text-decoration: underline;
+  }
+  .pvmp-markdown code {
+    font-family: var(--vscode-editor-font-family);
+    font-size: 90%;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--vscode-textCodeBlock-background);
+  }
+  .pvmp-markdown pre {
+    margin: 0 0 14px;
+    padding: 12px;
+    overflow: auto;
+    border-radius: 3px;
+    background: var(--vscode-textCodeBlock-background);
+  }
+  .pvmp-markdown pre code {
+    padding: 0;
+    background: none;
+  }
+  .pvmp-markdown blockquote {
+    margin: 0 0 14px;
+    padding: 0 12px;
+    border-left: 4px solid var(--vscode-textBlockQuote-border);
+    background: var(--vscode-textBlockQuote-background);
+  }
+  .pvmp-markdown table {
+    border-collapse: collapse;
+  }
+  .pvmp-markdown th,
+  .pvmp-markdown td {
+    padding: 4px 10px;
+    border: 1px solid var(--vscode-panel-border);
+    text-align: left;
+  }
+  .pvmp-markdown img {
+    max-width: 100%;
+  }
+  .pvmp-markdown hr {
+    border: none;
+    border-top: 1px solid var(--vscode-panel-border);
+    margin: 20px 0;
+  }
+}

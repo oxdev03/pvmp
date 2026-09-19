@@ -9,11 +9,14 @@ import type {
 /**
  * Everything the webview may ask the extension host to do.
  *
- * This interface is the single source of truth for the wire: the client proxy
- * and the host dispatcher are both derived from it, so adding a method without
+ * This is the single source of truth for the wire: the client proxy and the
+ * host dispatcher are both derived from it, so adding a method without
  * implementing it is a type error rather than a runtime 'unknown method'.
+ *
+ * A type alias rather than an interface on purpose. Only type aliases get an
+ * implicit index signature, which is what lets this satisfy ApiShape.
  */
-export interface HostApi {
+export type HostApi = {
   listCatalog(): Promise<CatalogSnapshot>;
   getDetails(extensionId: string, version?: string): Promise<ExtensionDetails>;
   /**
@@ -31,11 +34,11 @@ export interface HostApi {
   openExtension(extensionId: string): Promise<void>;
   openLog(): Promise<void>;
   addLocalSource(): Promise<void>;
-}
+};
 
 /** Host-initiated notifications. Fire-and-forget, no response. */
-export interface HostEvents {
+export type HostEvents = {
   catalogChanged: () => void;
   installProgress: (progress: InstallProgress) => void;
   sourceError: (error: SourceError) => void;
-}
+};

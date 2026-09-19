@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pvmp webview harness</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!--
+      Dev and Playwright only. The extension never loads this file: it builds
+      its own HTML around entry-sidebar.js / entry-details.js with a CSP.
+    -->
+    <script type="module" src="/src/dev/harness.tsx"></script>
+  </body>
+</html>

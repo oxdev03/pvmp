@@ -8,7 +8,10 @@
     "pedantic": "off",
     "style": "off"
   },
-  "env": { "es2024": true, "node": true },
+  "env": {
+    "es2024": true,
+    "node": true
+  },
   "ignorePatterns": [
     "**/dist/**",
     "**/node_modules/**",
@@ -28,22 +31,38 @@
   "overrides": [
     {
       "files": ["apps/webview/**/*.{ts,tsx}"],
-      "env": { "browser": true },
+      "env": {
+        "browser": true
+      },
       "rules": {
-        "unicorn/prefer-node-protocol": "off"
+        "unicorn/prefer-node-protocol": "off",
+        "react/react-in-jsx-scope": "off",
+        "react-hooks/rules-of-hooks": "error",
+        "react-hooks/exhaustive-deps": "warn",
+        "import/no-unassigned-import": "off"
       }
     },
     {
-      "files": ["**/*.test.ts", "**/*.test.tsx", "**/tests/**", "**/e2e/**", "**/fixtures/**"],
+      "files": [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/tests/**",
+        "**/e2e/**",
+        "**/fixtures/**",
+        "**/src/dev/**"
+      ],
       "rules": {
         "typescript/no-explicit-any": "off",
         "typescript/no-non-null-assertion": "off",
-        "no-console": "off"
+        "no-console": "off",
+        "no-underscore-dangle": "off"
       }
     },
     {
       "files": ["**/*.config.ts", "**/scripts/**", "apps/extension/src/log.ts"],
-      "rules": { "no-console": "off" }
+      "rules": {
+        "no-console": "off"
+      }
     }
   ]
 }

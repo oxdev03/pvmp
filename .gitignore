@@ -17,3 +17,6 @@ blob-report/
 .env
 .env.local
 *.local
+
+# playwright mcp scratch
+.playwright-mcp/
