@@ -1,0 +1,16 @@
+{
+  "extends": "./tooling/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": ["node"]
+  },
+  "include": [
+    "apps/extension/**/*.ts",
+    "packages/contract/**/*.ts",
+    "packages/core/**/*.ts",
+    "packages/source-local/**/*.ts",
+    "packages/source-npm/**/*.ts",
+    "*.config.ts"
+  ],
+  "exclude": ["**/node_modules", "**/dist"]
+}

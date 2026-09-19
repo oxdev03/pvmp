@@ -1,0 +1,26 @@
+import type { Transport } from './protocol.ts';
+
+/**
+ * A pair of transports wired to each other, delivering asynchronously so tests
+ * exercise the same ordering the real `postMessage` bridge has.
+ */
+export function createTransportPair(): { a: Transport; b: Transport } {
+  const handlers: { a: Set<(m: unknown) => void>; b: Set<(m: unknown) => void> } = {
+    a: new Set(),
+    b: new Set(),
+  };
+
+  const make = (self: 'a' | 'b', peer: 'a' | 'b'): Transport => ({
+    post(message) {
+      queueMicrotask(() => {
+        for (const handler of Array.from(handlers[peer])) handler(message);
+      });
+    },
+    subscribe(handler) {
+      handlers[self].add(handler);
+      return () => handlers[self].delete(handler);
+    },
+  });
+
+  return { a: make('a', 'b'), b: make('b', 'a') };
+}

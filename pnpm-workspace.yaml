@@ -2,6 +2,10 @@ packages:
   - apps/*
   - packages/*
   - tooling
+
+# vsce-sign's postinstall is needed by `vsce publish` (CI, token-authenticated).
+# keytar is vsce's local credential store; we never use it, so skip its build.
 allowBuilds:
-  '@vscode/vsce-sign': set this to true or false
-  keytar: set this to true or false
+  '@vscode/vsce-sign': true
+  esbuild: true
+  keytar: false
