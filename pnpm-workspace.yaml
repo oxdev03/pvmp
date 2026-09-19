@@ -1,0 +1,7 @@
+packages:
+  - apps/*
+  - packages/*
+  - tooling
+allowBuilds:
+  '@vscode/vsce-sign': set this to true or false
+  keytar: set this to true or false

@@ -1,0 +1,19 @@
+node_modules/
+dist/
+out/
+*.vsix
+*.tgz
+.DS_Store
+
+# test output
+coverage/
+test-results/
+playwright-report/
+blob-report/
+**/__screenshots__/**/*-actual.png
+**/__screenshots__/**/*-diff.png
+
+# local scratch
+.env
+.env.local
+*.local

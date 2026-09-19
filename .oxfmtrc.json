@@ -1,0 +1,16 @@
+{
+  "printWidth": 100,
+  "singleQuote": true,
+  "semi": true,
+  "tabWidth": 2,
+  "sortImports": true,
+  "sortPackageJson": true,
+  "sortTailwindcss": true,
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/node_modules/**",
+    "pnpm-lock.yaml",
+    "**/__screenshots__/**",
+    "SPEC.md"
+  ]
+}

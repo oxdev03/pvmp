@@ -1,0 +1,61 @@
+{
+  "name": "@pvmp/extension",
+  "displayName": "Private Marketplace",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Private VS Code extension marketplace for corporate environments",
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "artifactory",
+    "corporate",
+    "extension",
+    "marketplace",
+    "nexus",
+    "private",
+    "verdaccio",
+    "vscode"
+  ],
+  "bugs": {
+    "url": "https://github.com/oxdev03/pvmp/issues"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "oxdev03",
+    "url": "https://github.com/oxdev03"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oxdev03/pvmp"
+  },
+  "publisher": "oxdev03",
+  "type": "module",
+  "main": "./dist/extension.cjs",
+  "scripts": {
+    "build": "vite build",
+    "watch": "vite build --watch",
+    "package": "vsce package --no-dependencies --out ../../pvmp.vsix"
+  },
+  "dependencies": {
+    "@pvmp/contract": "workspace:*",
+    "@pvmp/core": "workspace:*",
+    "@pvmp/source-local": "workspace:*",
+    "@pvmp/source-npm": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@types/vscode": "1.96.0",
+    "@vscode/vsce": "4.0.0",
+    "ovsx": "1.2.0",
+    "vite": "8.3.0"
+  },
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "icon": "media/icon.png",
+  "engines": {
+    "vscode": "^1.96.0"
+  }
+}

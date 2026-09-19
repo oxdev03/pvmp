@@ -1,0 +1,13 @@
+{
+  "name": "@pvmp/source-local",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@pvmp/contract": "workspace:*",
+    "@pvmp/core": "workspace:*"
+  }
+}

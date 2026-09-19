@@ -1,0 +1,18 @@
+{
+  "name": "@pvmp/core",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@pvmp/contract": "workspace:*",
+    "fflate": "0.8.3",
+    "nanotar": "0.3.0",
+    "semver": "7.8.5"
+  },
+  "devDependencies": {
+    "@types/semver": "7.7.1"
+  }
+}

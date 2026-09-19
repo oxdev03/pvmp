@@ -1,0 +1,49 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import", "promise", "react", "jsx-a11y", "vitest"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "warn",
+    "pedantic": "off",
+    "style": "off"
+  },
+  "env": { "es2024": true, "node": true },
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/node_modules/**",
+    "**/*.d.ts",
+    "**/test-results/**",
+    "**/playwright-report/**"
+  ],
+  "rules": {
+    "no-console": "error",
+    "eqeqeq": ["error", "smart"],
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-non-null-assertion": "error",
+    "unicorn/prefer-node-protocol": "error",
+    "import/no-cycle": "error"
+  },
+  "overrides": [
+    {
+      "files": ["apps/webview/**/*.{ts,tsx}"],
+      "env": { "browser": true },
+      "rules": {
+        "unicorn/prefer-node-protocol": "off"
+      }
+    },
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "**/tests/**", "**/e2e/**", "**/fixtures/**"],
+      "rules": {
+        "typescript/no-explicit-any": "off",
+        "typescript/no-non-null-assertion": "off",
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["**/*.config.ts", "**/scripts/**", "apps/extension/src/log.ts"],
+      "rules": { "no-console": "off" }
+    }
+  ]
+}
