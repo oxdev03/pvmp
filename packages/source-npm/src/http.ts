@@ -26,6 +26,26 @@ export interface HttpResult<T> {
   notModified: boolean;
 }
 
+/**
+ * Strips any userinfo before a URL reaches a log line or an error message.
+ *
+ * A registry configured as https://user:pass@host/ would otherwise put those
+ * credentials into the output channel and into the error banner the webview
+ * renders.
+ */
+export function redactUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.username && !parsed.password) return url;
+    parsed.username = '';
+    parsed.password = '';
+    return parsed.toString();
+  } catch {
+    // Not parseable, so there is no userinfo to strip either.
+    return url;
+  }
+}
+
 function headers(ctx: HttpContext, options: HttpOptions): Record<string, string> {
   const result: Record<string, string> = {
     accept: options.accept ?? 'application/json',
@@ -36,7 +56,7 @@ function headers(ctx: HttpContext, options: HttpOptions): Record<string, string>
 }
 
 async function send(url: string, ctx: HttpContext, options: HttpOptions): Promise<Response> {
-  ctx.log.trace(`[${ctx.sourceId}] GET ${url}`);
+  ctx.log.trace(`[${ctx.sourceId}] GET ${redactUrl(url)}`);
   try {
     return await fetch(url, {
       headers: headers(ctx, options),
@@ -48,7 +68,7 @@ async function send(url: string, ctx: HttpContext, options: HttpOptions): Promis
     throw new SourceFailure(
       ctx.sourceId,
       'unreachable',
-      `Could not reach ${url}: ${error instanceof Error ? error.message : String(error)}`,
+      `Could not reach ${redactUrl(url)}: ${error instanceof Error ? error.message : String(error)}`,
       error,
     );
   }
@@ -60,8 +80,8 @@ function assertOk(response: Response, url: string, ctx: HttpContext): void {
     ctx.sourceId,
     httpErrorKind(response.status),
     response.status === 401 || response.status === 403
-      ? `Sign-in required: ${url} returned ${response.status} ${response.statusText}.`
-      : `${url} returned ${response.status} ${response.statusText}.`,
+      ? `Sign-in required: ${redactUrl(url)} returned ${response.status} ${response.statusText}.`
+      : `${redactUrl(url)} returned ${response.status} ${response.statusText}.`,
   );
 }
 
@@ -81,7 +101,7 @@ export async function getJson<T>(
   try {
     value = (await response.json()) as T;
   } catch (error) {
-    throw new SourceFailure(ctx.sourceId, 'parse', `${url} did not return JSON`, error);
+    throw new SourceFailure(ctx.sourceId, 'parse', `${redactUrl(url)} did not return JSON`, error);
   }
 
   return { value, etag: response.headers.get('etag') ?? undefined, notModified: false };
@@ -111,7 +131,11 @@ export async function getStream(
   const response = await send(url, ctx, { accept: 'application/octet-stream', ...options });
   assertOk(response, url, ctx);
   if (!response.body) {
-    throw new SourceFailure(ctx.sourceId, 'unreachable', `${url} returned an empty body`);
+    throw new SourceFailure(
+      ctx.sourceId,
+      'unreachable',
+      `${redactUrl(url)} returned an empty body`,
+    );
   }
   return response.body;
 }

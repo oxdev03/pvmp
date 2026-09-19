@@ -7,7 +7,7 @@ import type {
   SourceFactory,
   SourceProvider,
 } from '@pvmp/core';
-import { readPvmpTarball, SourceFailure, toExtensionLinks, toExtensionVersion } from '@pvmp/core';
+import { extractContent, readPvmpTarball, SourceFailure, toExtensionVersion } from '@pvmp/core';
 
 export const LOCAL_SOURCE_TYPE = 'local';
 
@@ -18,7 +18,6 @@ const SKIP_DIRECTORIES = new Set(['node_modules', '.git', '.svn', '.hg', '.cache
 interface CachedEntry {
   version: ExtensionVersion;
   content: ExtensionDetailContent;
-  hasIcon: boolean;
 }
 
 /**
@@ -61,9 +60,9 @@ export class LocalSource implements SourceProvider {
   }
 
   async fetchIcon(version: ExtensionVersion): Promise<Uint8Array | undefined> {
-    const key = await this.#key(version.locator);
-    const entry = await this.#read(version.locator);
-    return entry.hasIcon ? this.deps.cache.get('icon', key) : undefined;
+    // #read caches the icon as a side effect; this only has to look it up.
+    await this.#read(version.locator);
+    return this.deps.cache.get('icon', await this.#key(version.locator));
   }
 
   async fetchVsix(version: ExtensionVersion): Promise<Uint8Array> {
@@ -110,15 +109,9 @@ export class LocalSource implements SourceProvider {
 
     const entry: CachedEntry = {
       version,
-      content: {
-        ...(tarball.readme ? { readme: tarball.readme } : {}),
-        ...(tarball.changelog ? { changelog: tarball.changelog } : {}),
-        links: toExtensionLinks(tarball.packageJson),
-      },
-      hasIcon: tarball.icon !== undefined,
+      content: await extractContent(tarball, this.deps.cache, key),
     };
 
-    if (tarball.icon) await this.deps.cache.put('icon', key, tarball.icon);
     await this.deps.cache.putJson(key, entry);
     return entry;
   }

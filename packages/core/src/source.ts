@@ -2,6 +2,8 @@ import type { ExtensionLinks, ExtensionVersion } from '@pvmp/contract';
 
 import type { BlobCache } from './cache.ts';
 import type { FileStore } from './filestore.ts';
+import { toExtensionLinks } from './manifest.ts';
+import type { PvmpTarball } from './tarball.ts';
 
 export interface Logger {
   trace(message: string, ...args: unknown[]): void;
@@ -27,10 +29,6 @@ export interface SourceDeps {
   watch?(root: string, onChange: () => void): () => void;
 }
 
-export interface SourceCall {
-  signal?: AbortSignal;
-}
-
 export interface ExtensionDetailContent {
   readme?: string;
   changelog?: string;
@@ -46,13 +44,33 @@ export interface ExtensionDetailContent {
 export interface SourceProvider {
   readonly id: string;
   /** Every version of every extension this source offers. */
-  list(call?: SourceCall): Promise<ExtensionVersion[]>;
-  fetchDetails(version: ExtensionVersion, call?: SourceCall): Promise<ExtensionDetailContent>;
-  fetchIcon(version: ExtensionVersion, call?: SourceCall): Promise<Uint8Array | undefined>;
+  list(): Promise<ExtensionVersion[]>;
+  fetchDetails(version: ExtensionVersion): Promise<ExtensionDetailContent>;
+  fetchIcon(version: ExtensionVersion): Promise<Uint8Array | undefined>;
   /** The raw .vsix bytes, ready to hand to VS Code. */
-  fetchVsix(version: ExtensionVersion, call?: SourceCall): Promise<Uint8Array>;
+  fetchVsix(version: ExtensionVersion): Promise<Uint8Array>;
   /** Called when the source is removed or the extension deactivates. */
   dispose?(): void;
+}
+
+/**
+ * Turns a parsed tarball into detail content and caches its icon.
+ *
+ * Both sources read the identical package format; only how the bytes arrive
+ * differs. Keeping this in one place means "what detail content is" has a
+ * single definition.
+ */
+export async function extractContent(
+  tarball: PvmpTarball,
+  cache: BlobCache,
+  iconKey: string,
+): Promise<ExtensionDetailContent> {
+  if (tarball.icon) await cache.put('icon', iconKey, tarball.icon);
+  return {
+    ...(tarball.readme ? { readme: tarball.readme } : {}),
+    ...(tarball.changelog ? { changelog: tarball.changelog } : {}),
+    links: toExtensionLinks(tarball.packageJson),
+  };
 }
 
 /** Raw, unvalidated entry from the `pvmp.sources` setting. */

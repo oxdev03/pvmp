@@ -19,7 +19,6 @@ export interface CatalogDeps {
   sourceDeps: SourceDeps;
   state: ExtensionState;
   log: SourceDeps['log'];
-  onChanged: () => void;
   onSourceError: (error: SourceError) => void;
 }
 
@@ -56,6 +55,7 @@ export class CatalogService {
   #errors: SourceError[] = [];
   #runtimeErrors: SourceError[] = [];
   #versions: ExtensionVersion[] | undefined;
+  #loading: Promise<ExtensionVersion[]> | undefined;
   #platform: TargetPlatform | undefined;
 
   constructor(private readonly deps: CatalogDeps) {}
@@ -99,32 +99,48 @@ export class CatalogService {
     this.#versions = undefined;
   }
 
-  async snapshot(): Promise<CatalogSnapshot> {
-    this.#platform ??= detectTargetPlatform(process.platform, process.arch, await isAlpine());
+  /**
+   * Lists every source once, sharing one in-flight request.
+   *
+   * Without the shared promise, concurrent callers each re-list every source:
+   * two webviews mounting together, or a burst of getIcon calls that each
+   * resolve through locate(), would multiply the network work.
+   */
+  async #load(): Promise<ExtensionVersion[]> {
+    if (this.#versions) return this.#versions;
 
-    const configErrors = [...this.#errors];
-    const runtimeErrors: SourceError[] = [];
-
-    if (!this.#versions) {
+    this.#loading ??= (async () => {
+      const errors: SourceError[] = [];
       const results = await Promise.all(
         this.#sources.map(async (source) => {
           try {
             return await source.list();
           } catch (error) {
             const sourceError = toSourceError(source.id, error);
-            runtimeErrors.push(sourceError);
+            errors.push(sourceError);
             this.deps.log.error(`[${source.id}] ${sourceError.message}`);
             this.deps.onSourceError(sourceError);
             return [];
           }
         }),
       );
+
       this.#versions = results.flat();
-      this.#runtimeErrors = runtimeErrors;
-    }
+      this.#runtimeErrors = errors;
+      return this.#versions;
+    })().finally(() => {
+      this.#loading = undefined;
+    });
+
+    return this.#loading;
+  }
+
+  async snapshot(): Promise<CatalogSnapshot> {
+    this.#platform ??= detectTargetPlatform(process.platform, process.arch, await isAlpine());
+    const versions = await this.#load();
 
     const entries = buildCatalog(
-      this.#versions,
+      versions,
       installedExtensions(),
       {
         vscodeVersion: vscode.version,
@@ -136,7 +152,7 @@ export class CatalogService {
 
     return {
       entries,
-      errors: [...configErrors, ...this.#runtimeErrors],
+      errors: [...this.#errors, ...this.#runtimeErrors],
       vscodeVersion: vscode.version,
       targetPlatform: this.#platform,
     };

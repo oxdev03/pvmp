@@ -31,7 +31,6 @@ async function listViaAll(ctx: AdapterContext): Promise<string[] | undefined> {
     const { value } = await getJson<Record<string, unknown>>(
       joinUrl(ctx.registry, '-/all'),
       ctx.http,
-      { signal: ctx.signal },
     );
     if (!value) return undefined;
 
@@ -55,7 +54,7 @@ async function listViaSearch(ctx: AdapterContext): Promise<string[]> {
       `-/v1/search?text=${encodeURIComponent(text)}&size=${PAGE_SIZE}&from=${from}`,
     );
     // oxlint-disable-next-line no-await-in-loop -- `from` depends on the previous page
-    const { value } = await getJson<SearchResponse>(url, ctx.http, { signal: ctx.signal });
+    const { value } = await getJson<SearchResponse>(url, ctx.http);
 
     const page = value?.objects ?? [];
     for (const item of page) {

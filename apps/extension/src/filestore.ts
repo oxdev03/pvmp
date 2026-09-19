@@ -61,11 +61,5 @@ export function createVscodeFileStore(root: vscode.Uri): FileStore {
         return undefined;
       }
     },
-
-    uri(path) {
-      // A file:// URI. Turning it into a webview URI is the caller's job,
-      // because asWebviewUri is specific to one webview's origin.
-      return resolve(path).toString();
-    },
   };
 }

@@ -81,17 +81,42 @@ describe('BlobCache', () => {
     expect(cache.totalBytes).toBe(0);
   });
 
-  it('exposes a webview uri for a cached blob', () => {
-    const { cache } = make();
-    expect(cache.uri('icon', '@corp/x@1.0.0')).toBe('memfs://cache/icon/%40corp%2Fx%401.0.0.png');
-  });
-
   describe('prune', () => {
     it('does nothing while under the size cap', async () => {
       const { cache } = make(1000);
       await cache.put('icon', 'a', bytes(100));
       await cache.prune();
       expect(await cache.get('icon', 'a')).toBeDefined();
+    });
+
+    it('evicts blobs a previous session never wrote to the index', async () => {
+      // The index is only persisted by flush(). A session that ends without
+      // one leaves blobs on disk that the next run cannot see — and an unseen
+      // blob was never evicted, so the cache grew without bound.
+      const store = createMemoryFileStore();
+      const first = new BlobCache(store, 'cache', 250);
+      await first.put('icon', 'a', bytes(200));
+      await first.put('icon', 'b', bytes(200));
+      // Deliberately no flush(): simulate the window closing.
+
+      const second = new BlobCache(store, 'cache', 250);
+      await second.prune();
+
+      expect(second.totalBytes).toBeLessThanOrEqual(250);
+      const survivors = await store.list('cache/icon');
+      expect(survivors).toHaveLength(1);
+    });
+
+    it('forgets index entries whose files are gone', async () => {
+      const { store, cache } = make(1000);
+      await cache.put('icon', 'a', bytes(100));
+      await cache.put('icon', 'b', bytes(100));
+      expect(cache.totalBytes).toBe(200);
+
+      await store.remove('cache/icon/a.png');
+      await cache.prune();
+
+      expect(cache.totalBytes).toBe(100);
     });
 
     it('evicts least-recently-used blobs until it fits', async () => {

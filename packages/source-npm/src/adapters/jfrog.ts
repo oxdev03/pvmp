@@ -31,7 +31,7 @@ export const jfrogAdapter: CatalogAdapter = {
     }
 
     const url = joinUrl(base, `api/storage/${repo}?list&deep=1&listFolders=0&mdTimestamps=0`);
-    const { value } = await getJson<StorageListing>(url, ctx.http, { signal: ctx.signal });
+    const { value } = await getJson<StorageListing>(url, ctx.http);
 
     const names = new Set<string>();
     for (const file of value?.files ?? []) {

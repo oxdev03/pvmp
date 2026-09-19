@@ -14,7 +14,6 @@ export interface AdapterContext {
   repo: string | undefined;
   /** Base URL of the product, when it differs from `registry`. */
   baseUrl: string | undefined;
-  signal: AbortSignal | undefined;
 }
 
 /**

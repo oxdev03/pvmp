@@ -12,8 +12,6 @@ export interface FileStore {
   /** Names of the direct children of `path`; empty when it does not exist. */
   list(path: string): Promise<FileEntry[]>;
   stat(path: string): Promise<FileStat | undefined>;
-  /** A URI the webview may load this path from, or undefined if not exposable. */
-  uri(path: string): string | undefined;
 }
 
 export interface FileEntry {
@@ -35,7 +33,7 @@ export interface FileStat {
  * a bare Date.now() here would stamp writes in the same tick identically and
  * make mtime-keyed cache invalidation look broken when it is not.
  */
-export function createMemoryFileStore(uriPrefix = 'memfs://'): FileStore {
+export function createMemoryFileStore(): FileStore {
   const files = new Map<string, { data: Uint8Array; mtime: number }>();
   let clock = Date.now();
   const tick = () => (clock = Math.max(clock + 1, Date.now()));
@@ -71,6 +69,5 @@ export function createMemoryFileStore(uriPrefix = 'memfs://'): FileStore {
         file ? { size: file.data.length, mtime: file.mtime, type: 'file' as const } : undefined,
       );
     },
-    uri: (path) => `${uriPrefix}${path}`,
   };
 }

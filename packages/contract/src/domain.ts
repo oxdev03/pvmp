@@ -31,21 +31,6 @@ export const TARGET_PLATFORMS: readonly TargetPlatform[] = [
   'darwin-arm64',
 ];
 
-/**
- * The `pvmp` block a published npm package must carry.
- *
- * It exists because a few fields live only in `extension.vsixmanifest`, and
- * pvmp deliberately never parses that file — see SPEC.md §2.
- */
-export interface PvmpBlock {
-  /** `publisher.name`, exactly as VS Code identifies the extension. */
-  extensionId: string;
-  displayName: string;
-  publisherDisplayName?: string;
-  targetPlatform?: TargetPlatform;
-  preRelease?: boolean;
-}
-
 /** One concrete, installable version of an extension, from one source. */
 export interface ExtensionVersion {
   extensionId: string;

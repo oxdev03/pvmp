@@ -28,6 +28,13 @@ export const COMMANDS = {
   showLog: 'pvmp.showLog',
 } as const;
 
+/**
+ * Held for deactivate(): the cache index must be written before the window
+ * closes, or blobs added this session are invisible to the next one's prune
+ * and never get evicted.
+ */
+let activeCache: BlobCache | undefined;
+
 export function activate(context: vscode.ExtensionContext): void {
   const channel = vscode.window.createOutputChannel('Private Marketplace', { log: true });
   const log = createLogger(channel);
@@ -42,6 +49,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const settings = readSettings();
   const cache = new BlobCache(files, 'cache', settings.cacheSizeMb * 1024 * 1024);
+  activeCache = cache;
 
   const sourceDeps: SourceDeps = {
     log,
@@ -70,7 +78,6 @@ export function activate(context: vscode.ExtensionContext): void {
     sourceDeps,
     state,
     log,
-    onChanged: () => hub.emit('catalogChanged'),
     onSourceError: (error) => hub.emit('sourceError', error),
   });
   catalog.reloadSources();
@@ -219,6 +226,8 @@ export function activate(context: vscode.ExtensionContext): void {
   void refresh();
 }
 
-export function deactivate(): void {
+export async function deactivate(): Promise<void> {
   DetailsPanel.disposeCurrent();
+  await activeCache?.flush();
+  activeCache = undefined;
 }

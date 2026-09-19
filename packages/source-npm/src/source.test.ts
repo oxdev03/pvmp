@@ -284,3 +284,57 @@ describe('logging', () => {
     };
   }
 });
+
+describe('credentials never reach logs or errors', () => {
+  const WITH_CREDS = 'https://alice:hunter2@registry.corp/';
+
+  function credentialSource(deps = makeDeps()) {
+    return new NpmSource(
+      {
+        id: 'corp',
+        registry: WITH_CREDS,
+        adapter: verdaccioAdapter,
+        scope: undefined,
+        repo: undefined,
+        baseUrl: undefined,
+      },
+      deps,
+    );
+  }
+
+  it('strips userinfo from trace logging', async () => {
+    const messages: string[] = [];
+    const deps = makeDeps();
+    deps.log = { ...silentLog, trace: (m) => messages.push(m), debug: (m) => messages.push(m) };
+
+    vi.stubGlobal(
+      'fetch',
+      stubFetch({
+        'https://alice:hunter2@registry.corp/-/all': { json: { '@corp/vsc-lint': {} } },
+        'https://alice:hunter2@registry.corp/@corp%2fvsc-lint': {
+          json: packument({ '1.4.0': manifest('1.4.0') }),
+        },
+      }).fetch,
+    );
+    await credentialSource(deps).list();
+
+    expect(messages.length).toBeGreaterThan(0);
+    expect(messages.join('\n')).not.toContain('hunter2');
+    expect(messages.join('\n')).not.toContain('alice');
+  });
+
+  it('strips userinfo from the error the webview renders', async () => {
+    vi.stubGlobal(
+      'fetch',
+      stubFetch({
+        'https://alice:hunter2@registry.corp/-/all': { status: 401 },
+        'https://alice:hunter2@registry.corp/-/v1/search': { status: 401 },
+      }).fetch,
+    );
+
+    await expect(credentialSource().list()).rejects.toSatisfy(
+      (error: Error) =>
+        !error.message.includes('hunter2') && error.message.includes('registry.corp'),
+    );
+  });
+});

@@ -1,4 +1,5 @@
 import type { CatalogSnapshot, ExtensionDetails, InstallProgress } from '@pvmp/contract';
+import type { QueryClient } from '@tanstack/react-query';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 
@@ -6,9 +7,26 @@ import { useHost, useHostEvent } from './provider.tsx';
 
 export const queryKeys = {
   catalog: ['catalog'] as const,
+  allDetails: ['details'] as const,
   details: (extensionId: string, version?: string) => ['details', extensionId, version] as const,
   icon: (extensionId: string, version: string) => ['icon', extensionId, version] as const,
 };
+
+/**
+ * Refreshes what an install or uninstall can actually change.
+ *
+ * Deliberately not a bare `invalidateQueries()`: that also invalidates every
+ * icon, and an invalidation overrides their infinite staleTime, so installing
+ * one extension would refetch every visible icon over IPC — each a possible
+ * tarball stream on a cold host cache. Icons are keyed by version and never
+ * change in place.
+ */
+function invalidateAfterMutation(queryClient: QueryClient): Promise<void> {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.catalog }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.allDetails }),
+  ]).then(() => undefined);
+}
 
 export function useCatalog() {
   const host = useHost();
@@ -81,7 +99,7 @@ export function useInstall() {
   return useMutation({
     mutationFn: ({ extensionId, version }: { extensionId: string; version: string }) =>
       host.install(extensionId, version),
-    onSettled: () => queryClient.invalidateQueries(),
+    onSettled: () => invalidateAfterMutation(queryClient),
   });
 }
 
@@ -90,7 +108,7 @@ export function useUninstall() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (extensionId: string) => host.uninstall(extensionId),
-    onSettled: () => queryClient.invalidateQueries(),
+    onSettled: () => invalidateAfterMutation(queryClient),
   });
 }
 
@@ -109,6 +127,6 @@ export function usePreReleaseOptIn() {
   return useMutation({
     mutationFn: ({ extensionId, on }: { extensionId: string; on: boolean }) =>
       host.setPreReleaseOptIn(extensionId, on),
-    onSettled: () => queryClient.invalidateQueries(),
+    onSettled: () => invalidateAfterMutation(queryClient),
   });
 }

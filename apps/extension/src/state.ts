@@ -61,8 +61,11 @@ export class ExtensionState {
 
   async clearFailure(extensionId: string, version: string): Promise<void> {
     const failures = this.#failures();
-    if (delete failures[`${extensionId}@${version}`]) {
-      await this.memento.update(FAILURES, failures);
-    }
+    const key = `${extensionId}@${version}`;
+    // `delete` returns true even for a key that was never there, so it cannot
+    // stand in for the existence check.
+    if (!(key in failures)) return;
+    delete failures[key];
+    await this.memento.update(FAILURES, failures);
   }
 }

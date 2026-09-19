@@ -15,7 +15,6 @@ function ctx(overrides: Partial<AdapterContext> = {}): AdapterContext {
     scope: undefined,
     repo: undefined,
     baseUrl: undefined,
-    signal: undefined,
     ...overrides,
   };
 }

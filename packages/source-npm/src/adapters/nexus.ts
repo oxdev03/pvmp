@@ -39,7 +39,7 @@ export const nexusAdapter: CatalogAdapter = {
         }`,
       );
       // oxlint-disable-next-line no-await-in-loop -- the cursor comes from the previous page
-      const { value } = await getJson<ComponentsResponse>(url, ctx.http, { signal: ctx.signal });
+      const { value } = await getJson<ComponentsResponse>(url, ctx.http);
 
       for (const item of value?.items ?? []) {
         const name = qualifiedName(item);

@@ -101,15 +101,6 @@ export class BlobCache {
     this.#dirty = true;
   }
 
-  async has(kind: CacheKind, key: string): Promise<boolean> {
-    return (await this.get(kind, key)) !== undefined;
-  }
-
-  /** A webview-loadable URI for a cached blob, or undefined if not cached. */
-  uri(kind: CacheKind, key: string): string | undefined {
-    return this.store.uri(this.#path(kind, key));
-  }
-
   async getJson<T>(key: string): Promise<T | undefined> {
     const data = await this.get('meta', key);
     if (!data) return undefined;
@@ -139,9 +130,50 @@ export class BlobCache {
     return total;
   }
 
+  /**
+   * Reconciles the index with what is actually on disk.
+   *
+   * The index is an optimisation, not the source of truth. It is only
+   * persisted by flush(), so a session that ends without one leaves blobs the
+   * next run cannot see — and an unseen blob is never evicted, which made the
+   * cache grow without bound. Anything on disk but unindexed is adopted as
+   * least-recently-used; anything indexed but gone is dropped.
+   */
+  async #reconcile(): Promise<void> {
+    await this.#load();
+
+    const kinds = Object.keys(EXTENSION) as CacheKind[];
+    const listings = await Promise.all(
+      kinds.map((kind) => this.store.list(`${this.root}/${kind}`)),
+    );
+
+    const onDisk: string[] = [];
+    for (const [index, entries] of listings.entries()) {
+      const kind = kinds[index];
+      for (const entry of entries) {
+        if (entry.type === 'file') onDisk.push(`${this.root}/${kind}/${entry.name}`);
+      }
+    }
+
+    const unknown = onDisk.filter((path) => !this.#index.has(path));
+    const sizes = await Promise.all(unknown.map((path) => this.store.stat(path)));
+    for (const [index, path] of unknown.entries()) {
+      // seq 0 so an orphan is evicted before anything this session touched.
+      this.#index.set(path, { size: sizes[index]?.size ?? 0, seq: 0 });
+      this.#dirty = true;
+    }
+
+    const seen = new Set(onDisk);
+    for (const path of Array.from(this.#index.keys())) {
+      if (seen.has(path)) continue;
+      this.#index.delete(path);
+      this.#dirty = true;
+    }
+  }
+
   /** Evicts least-recently-used blobs until the cache fits under maxBytes. */
   async prune(): Promise<void> {
-    await this.#load();
+    await this.#reconcile();
     let total = this.totalBytes;
     if (total <= this.maxBytes) return;
 

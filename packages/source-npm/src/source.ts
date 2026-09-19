@@ -1,18 +1,17 @@
-import type { ExtensionLinks, ExtensionVersion } from '@pvmp/contract';
+import type { ExtensionVersion } from '@pvmp/contract';
 import type {
   ExtensionDetailContent,
   RawSourceConfig,
-  SourceCall,
   SourceDeps,
   SourceFactory,
   SourceProvider,
 } from '@pvmp/core';
 import {
+  extractContent,
   ManifestError,
   readIconFromStream,
   readPvmpTarball,
   SourceFailure,
-  toExtensionLinks,
   toExtensionVersion,
 } from '@pvmp/core';
 
@@ -41,7 +40,6 @@ interface CachedPackument {
 
 interface CachedContent {
   content: ExtensionDetailContent;
-  hasIcon: boolean;
 }
 
 /**
@@ -69,7 +67,7 @@ export class NpmSource implements SourceProvider {
     };
   }
 
-  async list(call?: SourceCall): Promise<ExtensionVersion[]> {
+  async list(): Promise<ExtensionVersion[]> {
     const http = await this.#http();
     const adapterCtx: AdapterContext = {
       sourceId: this.id,
@@ -79,7 +77,6 @@ export class NpmSource implements SourceProvider {
       scope: this.config.scope,
       repo: this.config.repo,
       baseUrl: this.config.baseUrl,
-      signal: call?.signal,
     };
 
     let names: string[];
@@ -96,7 +93,7 @@ export class NpmSource implements SourceProvider {
     const settled = await Promise.all(
       names.map(async (name) => {
         try {
-          return await this.#versionsOf(name, http, call);
+          return await this.#versionsOf(name, http);
         } catch (error) {
           this.deps.log.warn(`[${this.id}] skipping ${name}: ${String(error)}`);
           return [];
@@ -107,12 +104,8 @@ export class NpmSource implements SourceProvider {
     return settled.flat();
   }
 
-  async #versionsOf(
-    name: string,
-    http: HttpContext,
-    call?: SourceCall,
-  ): Promise<ExtensionVersion[]> {
-    const packument = await this.#packument(name, http, call);
+  async #versionsOf(name: string, http: HttpContext): Promise<ExtensionVersion[]> {
+    const packument = await this.#packument(name, http);
     const versions: ExtensionVersion[] = [];
 
     for (const entry of packumentEntries(packument)) {
@@ -138,14 +131,13 @@ export class NpmSource implements SourceProvider {
   }
 
   /** ETag-revalidated: unchanged packuments cost a 304, not a re-parse. */
-  async #packument(name: string, http: HttpContext, call?: SourceCall): Promise<Packument> {
+  async #packument(name: string, http: HttpContext): Promise<Packument> {
     const key = `packument:${this.id}:${name}`;
     const cached = await this.deps.cache.getJson<CachedPackument>(key);
     const url = joinUrl(this.config.registry, encodePackageName(name));
 
     const { value, etag, notModified } = await getJson<Packument>(url, http, {
       etag: cached?.etag,
-      signal: call?.signal,
     });
 
     if (notModified && cached) return cached.packument;
@@ -158,14 +150,11 @@ export class NpmSource implements SourceProvider {
     return value;
   }
 
-  async fetchDetails(
-    version: ExtensionVersion,
-    call?: SourceCall,
-  ): Promise<ExtensionDetailContent> {
-    return (await this.#content(version, call)).content;
+  async fetchDetails(version: ExtensionVersion): Promise<ExtensionDetailContent> {
+    return (await this.#content(version)).content;
   }
 
-  async fetchIcon(version: ExtensionVersion, call?: SourceCall): Promise<Uint8Array | undefined> {
+  async fetchIcon(version: ExtensionVersion): Promise<Uint8Array | undefined> {
     const key = this.#key(version);
     const cached = await this.deps.cache.get('icon', key);
     if (cached) return cached;
@@ -174,7 +163,6 @@ export class NpmSource implements SourceProvider {
     // SPEC.md §2.1 costs a few KB; one that is not degrades to a full download.
     const abort = new AbortController();
     const http = await this.#http();
-    call?.signal?.addEventListener('abort', () => abort.abort(), { once: true });
 
     let icon: Uint8Array | undefined;
     try {
@@ -192,9 +180,9 @@ export class NpmSource implements SourceProvider {
     return icon;
   }
 
-  async fetchVsix(version: ExtensionVersion, call?: SourceCall): Promise<Uint8Array> {
+  async fetchVsix(version: ExtensionVersion): Promise<Uint8Array> {
     const http = await this.#http();
-    const bytes = await getBytes(version.locator, http, { signal: call?.signal });
+    const bytes = await getBytes(version.locator, http, {});
 
     const tarball = readPvmpTarball(bytes, version.locator);
     if (!tarball.vsix) {
@@ -212,26 +200,19 @@ export class NpmSource implements SourceProvider {
   }
 
   /** Full tarball read, cached, for readme and changelog. */
-  async #content(version: ExtensionVersion, call?: SourceCall): Promise<CachedContent> {
+  async #content(version: ExtensionVersion): Promise<CachedContent> {
     const key = this.#key(version);
     const cached = await this.deps.cache.getJson<CachedContent>(`content:${key}`);
     if (cached) return cached;
 
     const http = await this.#http();
-    const bytes = await getBytes(version.locator, http, { signal: call?.signal });
+    const bytes = await getBytes(version.locator, http, {});
     const tarball = readPvmpTarball(bytes, version.locator);
 
-    const links: ExtensionLinks = toExtensionLinks(tarball.packageJson);
     const result: CachedContent = {
-      content: {
-        ...(tarball.readme ? { readme: tarball.readme } : {}),
-        ...(tarball.changelog ? { changelog: tarball.changelog } : {}),
-        links,
-      },
-      hasIcon: tarball.icon !== undefined,
+      content: await extractContent(tarball, this.deps.cache, key),
     };
 
-    if (tarball.icon) await this.deps.cache.put('icon', key, tarball.icon);
     await this.deps.cache.putJson(`content:${key}`, result);
     return result;
   }
