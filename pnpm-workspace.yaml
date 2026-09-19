@@ -5,7 +5,12 @@ packages:
 
 # vsce-sign's postinstall is needed by `vsce publish` (CI, token-authenticated).
 # keytar is vsce's local credential store; we never use it, so skip its build.
+# cpu-features/ssh2/protobufjs arrive via testcontainers -> dockerode and are
+# optional native speedups for Docker-over-SSH, which we do not use.
 allowBuilds:
   '@vscode/vsce-sign': true
+  cpu-features: false
   esbuild: true
   keytar: false
+  protobufjs: false
+  ssh2: false

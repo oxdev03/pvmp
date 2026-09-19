@@ -1,45 +1,33 @@
-import { execFileSync, execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { promisify } from 'node:util';
 
 import { buildPvmpTarball, packageJsonFixture, PNG_MAGIC } from '@pvmp/core/testing';
+import type { StartedTestContainer } from 'testcontainers';
+import { GenericContainer, getContainerRuntimeClient, Wait } from 'testcontainers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { verdaccioAdapter } from './adapters/index.ts';
 import { NpmSource } from './source.ts';
 import { makeDeps } from './testing.ts';
 
-const run = promisify(execFile);
-
 const IMAGE = 'verdaccio/verdaccio:6';
-const CONTAINER = `pvmp-verdaccio-${process.pid}`;
+const PORT = 4873;
 const USER = 'pvmp';
 const PASSWORD = 'pvmp-password';
 
-function dockerAvailable(): boolean {
+/**
+ * Probed through testcontainers' own client rather than shelling out to
+ * `docker`, so podman and a remote DOCKER_HOST count as available too.
+ */
+async function containerRuntimeAvailable(): Promise<boolean> {
   try {
-    execFileSync('docker', ['version', '--format', '{{.Server.Version}}'], { stdio: 'ignore' });
+    await getContainerRuntimeClient();
     return true;
   } catch {
     return false;
   }
 }
 
-async function waitForRegistry(registry: string, timeoutMs = 60_000): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    try {
-      // oxlint-disable-next-line no-await-in-loop -- polling is sequential
-      const response = await fetch(`${registry}-/ping`);
-      if (response.ok) return;
-    } catch {
-      // not up yet
-    }
-    if (Date.now() > deadline) throw new Error(`Verdaccio did not start within ${timeoutMs}ms`);
-    // oxlint-disable-next-line no-await-in-loop -- polling is sequential
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-}
+const hasRuntime = await containerRuntimeAvailable();
 
 /** npm's user-creation endpoint; returns a bearer token. */
 async function createUser(registry: string): Promise<string> {
@@ -113,31 +101,22 @@ async function publish(
  * tarball fetch, vsix extraction — and so also validates the shared client
  * that the fixture-verified JFrog and Nexus adapters ride on.
  */
-describe.skipIf(!dockerAvailable())(
+describe.skipIf(!hasRuntime)(
   'verdaccio integration',
   () => {
+    let container: StartedTestContainer;
     let registry: string;
     let token: string;
 
     beforeAll(async () => {
-      execFileSync('docker', ['pull', '--quiet', IMAGE], { stdio: 'ignore' });
-      const { stdout } = await run('docker', [
-        'run',
-        '--rm',
-        '--detach',
-        '--name',
-        CONTAINER,
-        '--publish',
-        '0:4873',
-        IMAGE,
-      ]);
-      if (!stdout.trim()) throw new Error('docker run produced no container id');
+      container = await new GenericContainer(IMAGE)
+        .withExposedPorts(PORT)
+        // Replaces a hand-rolled poll loop, and reports a useful reason
+        // rather than a bare timeout when the registry never comes up.
+        .withWaitStrategy(Wait.forHttp('/-/ping', PORT).forStatusCode(200))
+        .start();
 
-      const { stdout: portOut } = await run('docker', ['port', CONTAINER, '4873/tcp']);
-      const port = portOut.trim().split('\n')[0]?.split(':').pop();
-      registry = `http://127.0.0.1:${port}/`;
-
-      await waitForRegistry(registry);
+      registry = `http://${container.getHost()}:${container.getMappedPort(PORT)}/`;
       token = await createUser(registry);
 
       const vsix = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2, 3]);
@@ -161,12 +140,14 @@ describe.skipIf(!dockerAvailable())(
       }
     }, 180_000);
 
-    afterAll(() => {
-      try {
-        execFileSync('docker', ['rm', '-f', CONTAINER], { stdio: 'ignore' });
-      } catch {
-        // already gone
-      }
+    // Explicit teardown for the ordinary path. The real guarantee is Ryuk,
+    // the reaper testcontainers starts alongside: it holds a connection to
+    // this process and removes the container when that connection drops, so
+    // a Ctrl-C or a crash mid-run cannot leave Verdaccio running forever.
+    // `docker run --rm --detach` could, because --rm only fires when a
+    // container stops and Verdaccio never stops on its own.
+    afterAll(async () => {
+      await container?.stop();
     });
 
     function source() {

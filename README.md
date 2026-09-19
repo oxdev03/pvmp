@@ -70,7 +70,7 @@ pnpm dev              # webview standalone, with a mocked host
 pnpm check            # lint + format + typecheck
 pnpm test             # unit tests
 pnpm e2e              # webview e2e (visual assertions skip off Linux)
-pnpm test:integration # Verdaccio container + bundle smoke test
+pnpm test:integration # Verdaccio (testcontainers) + bundle smoke test
 pnpm package          # build and produce pvmp.vsix
 ```
 
@@ -119,6 +119,10 @@ apps/webview/scripts/update-visual-goldens.sh --check  # verify
 
 Goldens are generated in a container because macOS and Linux rasterise fonts
 far beyond any useful pixel threshold. The pixel assertions skip off Linux.
+
+`pnpm test:integration` needs a container runtime. It is probed through
+testcontainers, so Docker, Podman and a remote `DOCKER_HOST` all work, and the
+suite skips rather than fails when none is present.
 
 ## Licence
 

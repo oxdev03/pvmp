@@ -155,7 +155,7 @@ Ships in v2:
 
 | Adapter | Listing | Test level |
 |---|---|---|
-| `verdaccio` | `/-/all`, `/-/v1/search` | **Live** — Docker Verdaccio in CI |
+| `verdaccio` | `/-/all`, `/-/v1/search` | **Live** — Verdaccio via testcontainers |
 | `jfrog` | `/artifactory/api/storage/{repo}` walk | Recorded HTTP fixtures |
 | `nexus` | `/service/rest/v1/components?repository=` (cursor-paginated) | Recorded HTTP fixtures |
 
@@ -435,7 +435,7 @@ accessibility linting the pixel-clone UI needs.
 |---|---|
 | **Vitest** — `core`, `source-*` | Version-resolution matrix (semver × engine × target × pre-release), tarball parsing, cache keying, source merging and priority, streaming abort. Pure functions; the highest-value tests in the repo, and where v1's real bugs lived. |
 | **Playwright** — `apps/webview` | Standalone against the Vite dev server with mocked IPC. List rendering, grouping, version dropdown, install/uninstall flows, error and empty states, plus dark/light/high-contrast visual diffs. |
-| **Verdaccio integration** | Docker Verdaccio in CI. Publish a fixture package containing a real vsix, then list → packument → tarball → vsix extract, end to end. |
+| **Verdaccio integration** | A real Verdaccio, started with testcontainers. Publish a fixture package containing a real vsix, then list → packument → tarball → vsix extract, end to end. testcontainers rather than raw `docker` calls for its reaper: a container must not survive a killed test run. |
 
 **No `@vscode/test-cli` extension-host tests** — deliberately skipped as the
 slowest and flakiest layer.
@@ -570,6 +570,14 @@ Where the build departed from, or went beyond, the sections above.
 - **Production builds emit no sourcemap.** vsce's ignore rules did not
   reliably exclude a re-included path, so the map is simply not produced;
   `pnpm --filter pvmp watch` still emits one.
+- **Containers in tests go through testcontainers**, not `docker` CLI calls.
+  The first cut used `docker run --rm --detach`, which leaks: `--rm` fires
+  when a container stops, and Verdaccio never stops on its own, so a Ctrl-C
+  or a crash before teardown left it running indefinitely. testcontainers'
+  Ryuk sidecar reaps on connection loss, which was verified by SIGKILLing a
+  run mid-test. `update-visual-goldens.sh` stays a shell script with a
+  `trap EXIT`: it is a tool a person runs, not a test, and driving it through
+  testcontainers would need the workspace installed to install the workspace.
 
 ## 19. Sequencing
 

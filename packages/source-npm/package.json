@@ -12,6 +12,7 @@
     "@pvmp/core": "workspace:*"
   },
   "devDependencies": {
-    "@pvmp/core": "workspace:*"
+    "@pvmp/core": "workspace:*",
+    "testcontainers": "12.1.0"
   }
 }
