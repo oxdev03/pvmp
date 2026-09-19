@@ -16,7 +16,8 @@
     "e2e": "pnpm --filter @pvmp/webview e2e",
     "e2e:update": "pnpm --filter @pvmp/webview e2e:update",
     "package": "pnpm build && pnpm --filter @pvmp/extension package",
-    "changeset": "changeset"
+    "changeset": "changeset",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",

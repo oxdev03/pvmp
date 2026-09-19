@@ -4,10 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
   },
   "dependencies": {
     "@pvmp/contract": "workspace:*",
+    "@pvmp/core": "workspace:*"
+  },
+  "devDependencies": {
     "@pvmp/core": "workspace:*"
   }
 }
