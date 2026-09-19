@@ -23,7 +23,9 @@ export function useDetails(extensionId: string | undefined, version?: string) {
   return useQuery<ExtensionDetails>({
     queryKey: queryKeys.details(extensionId ?? '', version),
     queryFn: () => host.getDetails(extensionId as string, version),
-    enabled: extensionId !== undefined,
+    // Empty as well as undefined: asking the host for extension "" only
+    // produces a confusing "No such extension: " error.
+    enabled: Boolean(extensionId),
   });
 }
 

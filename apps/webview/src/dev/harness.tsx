@@ -7,6 +7,7 @@
  *   /?view=sidebar&fixture=auth
  *   /?view=details&ext=acme.lint&theme=light
  */
+import { readExtensionId, ROOT_EXTENSION_ID_ATTRIBUTE } from '@pvmp/contract';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -32,10 +33,19 @@ installMockHost(fixture);
 const container = document.getElementById('root');
 if (!container) throw new Error('#root is missing');
 
+// Stamp and read back through exactly what the extension host does, rather
+// than passing the id straight in: reading it is the part that broke once.
+// `ext=` may be empty, to exercise the no-target case.
+if (extensionId) container.setAttribute(ROOT_EXTENSION_ID_ATTRIBUTE, extensionId);
+
 createRoot(container).render(
   <StrictMode>
     <HostProvider>
-      {view === 'details' ? <DetailsView extensionId={extensionId} /> : <SidebarView />}
+      {view === 'details' ? (
+        <DetailsView extensionId={readExtensionId(container)} />
+      ) : (
+        <SidebarView />
+      )}
     </HostProvider>
   </StrictMode>,
 );

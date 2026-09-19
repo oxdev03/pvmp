@@ -7,7 +7,13 @@ export interface HtmlOptions {
   extensionUri: vscode.Uri;
   entry: WebviewEntry;
   title: string;
-  /** Rendered as data-* attributes on #root, e.g. the target extension id. */
+  /**
+   * Attributes to set on #root, keyed by their full attribute name.
+   *
+   * Full names rather than dataset keys on purpose: the HTML parser
+   * lowercases attribute names, so a camelCase key silently becomes
+   * unreadable through `dataset`. Use the constants in @pvmp/contract.
+   */
   rootData?: Record<string, string>;
 }
 
@@ -30,7 +36,15 @@ export function buildWebviewHtml(options: HtmlOptions): string {
   const token = nonce();
 
   const data = Object.entries(rootData)
-    .map(([key, value]) => ` data-${key}="${escapeAttribute(value)}"`)
+    .map(([name, value]) => {
+      if (!/^data-[a-z0-9-]+$/.test(name)) {
+        // Fail loudly rather than emit an attribute the webview cannot read.
+        throw new Error(
+          `Root attribute "${name}" must be lowercase kebab-case starting with "data-"`,
+        );
+      }
+      return ` ${name}="${escapeAttribute(value)}"`;
+    })
     .join('');
 
   /*

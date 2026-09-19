@@ -2,6 +2,37 @@ import { expect, test } from '@playwright/test';
 
 const details = (ext = 'acme.lint', query = '') => `/?view=details&ext=${ext}${query}`;
 
+test.describe('details page targeting', () => {
+  /*
+   * The host passes its target as a data-* attribute on #root. It once used a
+   * camelCase name, which the HTML parser lowercases into something `dataset`
+   * cannot read, so every details panel in the real extension opened empty.
+   * The harness used to bypass this by passing the id straight in; it now
+   * goes through the same attribute, so these cover the real path.
+   */
+  test('reads its target from the root attribute the host writes', async ({ page }) => {
+    await page.goto(details());
+
+    await expect(page.locator('#root')).toHaveAttribute('data-extension-id', 'acme.lint');
+    await expect(
+      page.getByRole('banner').getByRole('heading', { name: 'Corp Lint' }),
+    ).toBeVisible();
+  });
+
+  test('says so plainly when opened with no target', async ({ page }) => {
+    await page.goto('/?view=details&ext=');
+
+    await expect(page.getByTestId('details-no-target')).toBeVisible();
+    // Must not sit on a spinner, and must not ask the host for extension "".
+    await expect(page.getByText('Loading…')).toHaveCount(0);
+
+    const asked = await page.evaluate(
+      () => window.__pvmpMock?.calls.filter((call) => call.method === 'getDetails').length ?? 0,
+    );
+    expect(asked).toBe(0);
+  });
+});
+
 test.describe('details page', () => {
   test('renders the hero with publisher, identifier and description', async ({ page }) => {
     await page.goto(details());

@@ -18,17 +18,31 @@ const TABS = ['Details', 'Changelog'] as const;
 type Tab = (typeof TABS)[number];
 
 export interface DetailsViewProps {
-  extensionId: string;
+  /** Undefined when the host did not stamp a target onto #root. */
+  extensionId: string | undefined;
 }
 
 export function DetailsView({ extensionId }: DetailsViewProps) {
   const [selected, setSelected] = useState<string | undefined>();
   const [tab, setTab] = useState<Tab>('Details');
   const { data, isPending, error } = useDetails(extensionId, selected);
-  const progress = useInstallProgress().get(extensionId);
+  const progress = useInstallProgress().get(extensionId ?? '');
   const install = useInstall();
   const uninstall = useUninstall();
   useCatalogSync();
+
+  // With no target the query is disabled, so it would otherwise sit on
+  // "Loading…" forever. This is the case the host used to hit silently.
+  if (!extensionId) {
+    return (
+      <p
+        data-testid="details-no-target"
+        className="text-vscode-errorForeground p-[20px] text-[13px]"
+      >
+        This panel was opened without an extension to show.
+      </p>
+    );
+  }
 
   if (isPending) {
     return <p className="text-vscode-descriptionForeground p-[20px] text-[13px]">Loading…</p>;

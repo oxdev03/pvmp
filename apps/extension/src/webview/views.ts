@@ -1,5 +1,5 @@
 import type { HostApi, HostEvents, IpcHost } from '@pvmp/contract';
-import { serveIpc } from '@pvmp/contract';
+import { ROOT_EXTENSION_ID_ATTRIBUTE, serveIpc } from '@pvmp/contract';
 import * as vscode from 'vscode';
 
 import type { HostApiDeps } from './api.ts';
@@ -152,7 +152,7 @@ export class DetailsPanel {
       extensionUri: this.extensionUri,
       entry: 'details',
       title: this.extensionId,
-      rootData: { extensionId: this.extensionId },
+      rootData: { [ROOT_EXTENSION_ID_ATTRIBUTE]: this.extensionId },
     });
   }
 }
