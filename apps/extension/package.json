@@ -1,5 +1,5 @@
 {
-  "name": "@pvmp/extension",
+  "name": "pvmp",
   "displayName": "Private Marketplace",
   "version": "2.0.0",
   "private": true,
@@ -34,7 +34,7 @@
   "main": "./dist/extension.cjs",
   "scripts": {
     "build": "vite build",
-    "watch": "vite build --watch",
+    "watch": "vite build --watch --mode development",
     "package": "vsce package --no-dependencies --out ../../pvmp.vsix"
   },
   "dependencies": {
@@ -50,6 +50,206 @@
     "ovsx": "1.2.0",
     "vite": "8.3.0"
   },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "pvmp",
+          "title": "Private Marketplace",
+          "icon": "media/marketplace.svg"
+        }
+      ]
+    },
+    "views": {
+      "pvmp": [
+        {
+          "id": "pvmp.marketplace",
+          "name": "Extensions",
+          "type": "webview",
+          "icon": "media/marketplace.svg"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "pvmp.refresh",
+        "title": "Refresh Sources",
+        "category": "Private Marketplace",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "pvmp.updateAll",
+        "title": "Update All Extensions",
+        "category": "Private Marketplace",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "pvmp.addSource",
+        "title": "Add Folder Source",
+        "category": "Private Marketplace",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "pvmp.signIn",
+        "title": "Sign in to Source",
+        "category": "Private Marketplace",
+        "icon": "$(key)"
+      },
+      {
+        "command": "pvmp.openSettings",
+        "title": "Open Settings",
+        "category": "Private Marketplace",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "pvmp.showLog",
+        "title": "Show Log",
+        "category": "Private Marketplace",
+        "icon": "$(output)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "pvmp.updateAll",
+          "when": "view == pvmp.marketplace",
+          "group": "navigation@1"
+        },
+        {
+          "command": "pvmp.refresh",
+          "when": "view == pvmp.marketplace",
+          "group": "navigation@2"
+        },
+        {
+          "command": "pvmp.addSource",
+          "when": "view == pvmp.marketplace",
+          "group": "navigation@3"
+        },
+        {
+          "command": "pvmp.signIn",
+          "when": "view == pvmp.marketplace",
+          "group": "1_config@1"
+        },
+        {
+          "command": "pvmp.openSettings",
+          "when": "view == pvmp.marketplace",
+          "group": "1_config@2"
+        },
+        {
+          "command": "pvmp.showLog",
+          "when": "view == pvmp.marketplace",
+          "group": "1_config@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Private Marketplace",
+      "properties": {
+        "pvmp.sources": {
+          "type": "array",
+          "default": [],
+          "order": 0,
+          "markdownDescription": "Where extensions come from, in priority order: when two sources offer the same version, the earlier one wins.\n\nTokens are never stored here — use **Private Marketplace: Sign in to Source**.",
+          "items": {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "defaultSnippets": [
+              {
+                "label": "Local folder",
+                "body": {
+                  "type": "local",
+                  "path": "^\"\\${userHome}/vsix\""
+                }
+              },
+              {
+                "label": "npm registry",
+                "body": {
+                  "type": "npm",
+                  "id": "corp",
+                  "registry": "^\"https://\"",
+                  "adapter": "verdaccio"
+                }
+              }
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "local",
+                  "npm"
+                ],
+                "description": "Source kind."
+              },
+              "id": {
+                "type": "string",
+                "description": "Stable identifier. Keys the stored token, so changing it forgets the sign-in."
+              },
+              "path": {
+                "type": "string",
+                "description": "local: folder to scan for .tgz packages. Supports ${userHome}, ${workspaceFolder} and ${env:VAR}."
+              },
+              "depth": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 3,
+                "description": "local: how many directory levels to scan."
+              },
+              "registry": {
+                "type": "string",
+                "description": "npm: registry endpoint, e.g. https://art.corp/artifactory/api/npm/npm-local/"
+              },
+              "adapter": {
+                "type": "string",
+                "enum": [
+                  "verdaccio",
+                  "jfrog",
+                  "nexus"
+                ],
+                "description": "npm: how to list the catalog. Inferred from the registry URL when omitted."
+              },
+              "scope": {
+                "type": "string",
+                "description": "npm: only list packages under this scope, e.g. @corp."
+              },
+              "repo": {
+                "type": "string",
+                "description": "npm: repository name, when it is not in the registry URL."
+              },
+              "baseUrl": {
+                "type": "string",
+                "description": "npm: product base URL, when it differs from the registry URL."
+              }
+            }
+          }
+        },
+        "pvmp.autoUpdate": {
+          "type": "boolean",
+          "default": false,
+          "order": 1,
+          "description": "Install available updates automatically during the background check."
+        },
+        "pvmp.checkInterval": {
+          "type": "integer",
+          "default": 3600,
+          "minimum": 0,
+          "order": 2,
+          "description": "Seconds between background update checks. 0 disables checking."
+        },
+        "pvmp.cacheSizeMb": {
+          "type": "integer",
+          "default": 200,
+          "minimum": 16,
+          "order": 3,
+          "description": "Maximum size of the metadata and icon cache, in megabytes."
+        }
+      }
+    }
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "extensionKind": [
     "ui",
     "workspace"

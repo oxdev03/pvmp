@@ -1,0 +1,7 @@
+# Everything is bundled by Vite, so only dist, media and the readme ship.
+src/**
+node_modules/**
+*.ts
+vite.config.ts
+tsconfig*.json
+.vscodeignore

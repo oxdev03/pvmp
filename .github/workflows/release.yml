@@ -1,0 +1,79 @@
+name: Release
+
+# Changesets opens a "Version Packages" PR; merging it creates the tag, and
+# the tag is what publishes. Nothing ships from an ordinary push to main —
+# v1 published a marketplace release for every README typo.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  PNPM_VERSION: 11.17.0
+  NODE_VERSION: 22
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  version:
+    name: open the version pull request
+    if: startsWith(github.ref, 'refs/tags/') == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: changesets/action@v1
+        with:
+          version: pnpm changeset version
+          commit: 'chore: version packages'
+          title: 'chore: version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    name: publish the vsix
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm package
+
+      - name: Publish to the VS Code Marketplace
+        run: pnpm --filter pvmp exec vsce publish --no-dependencies --packagePath ../../pvmp.vsix
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
+
+      # Corporate users on VSCodium, Cursor and Windsurf cannot reach the
+      # Microsoft marketplace at all (SPEC.md §14).
+      - name: Publish to Open VSX
+        run: pnpm --filter pvmp exec ovsx publish ../../pvmp.vsix --pat "$OVSX_TOKEN"
+        env:
+          OVSX_TOKEN: ${{ secrets.OVSX_TOKEN }}
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: pvmp.vsix
+          generate_release_notes: true

@@ -1,0 +1,158 @@
+import type { HostApi, HostEvents, IpcHost } from '@pvmp/contract';
+import { serveIpc } from '@pvmp/contract';
+import * as vscode from 'vscode';
+
+import type { HostApiDeps } from './api.ts';
+import { createHostApi, createWebviewTransport } from './api.ts';
+import { buildWebviewHtml, webviewOptions } from './html.ts';
+
+export const SIDEBAR_VIEW_ID = 'pvmp.marketplace';
+export const DETAILS_VIEW_TYPE = 'pvmp.details';
+
+type Host = IpcHost<HostEvents>;
+
+/** Fans an event out to every live webview. */
+export class WebviewHub {
+  readonly #hosts = new Set<Host>();
+
+  add(host: Host): vscode.Disposable {
+    this.#hosts.add(host);
+    return new vscode.Disposable(() => {
+      host.dispose();
+      this.#hosts.delete(host);
+    });
+  }
+
+  emit<K extends keyof HostEvents & string>(event: K, ...args: Parameters<HostEvents[K]>): void {
+    for (const host of this.#hosts) host.emit(event, ...args);
+  }
+
+  dispose(): void {
+    for (const host of this.#hosts) host.dispose();
+    this.#hosts.clear();
+  }
+}
+
+function serve(
+  webview: vscode.Webview,
+  deps: HostApiDeps,
+  hub: WebviewHub,
+  log: vscode.LogOutputChannel,
+): vscode.Disposable {
+  const api = createHostApi(deps, webview);
+  const host = serveIpc<HostApi, HostEvents>(api, createWebviewTransport(webview), {
+    onError: (method, error) => log.error(`ipc ${method} failed: ${String(error)}`),
+  });
+  return hub.add(host);
+}
+
+/** The activity-bar list. Replaces v1's TreeView entirely (SPEC.md §7.1). */
+export class MarketplaceViewProvider implements vscode.WebviewViewProvider {
+  #view: vscode.WebviewView | undefined;
+
+  constructor(
+    private readonly extensionUri: vscode.Uri,
+    private readonly storage: vscode.Uri,
+    private readonly deps: HostApiDeps,
+    private readonly hub: WebviewHub,
+    private readonly log: vscode.LogOutputChannel,
+  ) {}
+
+  /** The activity-bar badge counting available updates. */
+  setBadge(count: number): void {
+    if (!this.#view) return;
+    this.#view.badge =
+      count > 0 ? { value: count, tooltip: `${count} update(s) available` } : undefined;
+  }
+
+  resolveWebviewView(view: vscode.WebviewView): void {
+    this.#view = view;
+    view.webview.options = webviewOptions(this.extensionUri, this.storage);
+    view.webview.html = buildWebviewHtml({
+      webview: view.webview,
+      extensionUri: this.extensionUri,
+      entry: 'sidebar',
+      title: 'Private Marketplace',
+    });
+    const served = serve(view.webview, this.deps, this.hub, this.log);
+    view.onDidDispose(() => {
+      served.dispose();
+      this.#view = undefined;
+    });
+  }
+}
+
+/**
+ * The details editor tab.
+ *
+ * One panel, reused: opening a second extension retargets the existing panel,
+ * which is how VS Code's own extension editor behaves.
+ */
+export class DetailsPanel {
+  private static current: DetailsPanel | undefined;
+
+  static show(
+    extensionId: string,
+    extensionUri: vscode.Uri,
+    storage: vscode.Uri,
+    deps: HostApiDeps,
+    hub: WebviewHub,
+    log: vscode.LogOutputChannel,
+  ): void {
+    const existing = DetailsPanel.current;
+    if (existing) {
+      existing.retarget(extensionId);
+      existing.panel.reveal(undefined, true);
+      return;
+    }
+
+    const panel = vscode.window.createWebviewPanel(
+      DETAILS_VIEW_TYPE,
+      extensionId,
+      { viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
+      { ...webviewOptions(extensionUri, storage), retainContextWhenHidden: false },
+    );
+
+    DetailsPanel.current = new DetailsPanel(panel, extensionId, extensionUri, deps, hub, log);
+  }
+
+  static disposeCurrent(): void {
+    DetailsPanel.current?.panel.dispose();
+    DetailsPanel.current = undefined;
+  }
+
+  private readonly disposables: vscode.Disposable[] = [];
+
+  private constructor(
+    private readonly panel: vscode.WebviewPanel,
+    private extensionId: string,
+    private readonly extensionUri: vscode.Uri,
+    deps: HostApiDeps,
+    hub: WebviewHub,
+    log: vscode.LogOutputChannel,
+  ) {
+    this.render();
+    this.disposables.push(serve(panel.webview, deps, hub, log));
+    panel.onDidDispose(() => {
+      for (const disposable of this.disposables) disposable.dispose();
+      DetailsPanel.current = undefined;
+    });
+  }
+
+  private retarget(extensionId: string): void {
+    if (this.extensionId === extensionId) return;
+    this.extensionId = extensionId;
+    this.render();
+  }
+
+  private render(): void {
+    this.panel.title = this.extensionId;
+    this.panel.webview.html = buildWebviewHtml({
+      webview: this.panel.webview,
+      extensionUri: this.extensionUri,
+      entry: 'details',
+      title: this.extensionId,
+      rootData: { extensionId: this.extensionId },
+    });
+  }
+}
