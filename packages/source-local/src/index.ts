@@ -60,9 +60,18 @@ export class LocalSource implements SourceProvider {
   }
 
   async fetchIcon(version: ExtensionVersion): Promise<Uint8Array | undefined> {
-    // #read caches the icon as a side effect; this only has to look it up.
-    await this.#read(version.locator);
-    return this.deps.cache.get('icon', await this.#key(version.locator));
+    const key = await this.#key(version.locator);
+    const cached = await this.deps.cache.get('icon', key);
+    if (cached) return cached;
+
+    // Not reached through #read: meta and icon blobs are evicted
+    // independently, so a surviving meta entry would short-circuit #read and
+    // leave an evicted icon gone for good. Re-extract instead.
+    const bytes = await this.deps.files.read(version.locator);
+    if (!bytes) return undefined;
+    const { icon } = readPvmpTarball(bytes, version.locator);
+    if (icon) await this.deps.cache.put('icon', key, icon);
+    return icon;
   }
 
   async fetchVsix(version: ExtensionVersion): Promise<Uint8Array> {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { BlobCache, encodeCacheKey } from './cache.ts';
+import type { FileStore } from './filestore.ts';
 import { createMemoryFileStore } from './filestore.ts';
 
 const bytes = (n: number) => new Uint8Array(n).fill(1);
@@ -119,6 +120,30 @@ describe('BlobCache', () => {
       expect(cache.totalBytes).toBe(100);
     });
 
+    it('keeps a blob written while it was listing the directory', async () => {
+      // refresh() emits catalogChanged and then prunes, so the webview's
+      // getIcon puts race the listing by construction. A blob indexed after
+      // the listing resolved is newer than the snapshot, not missing from it.
+      const store = createMemoryFileStore();
+      let duringListing: (() => Promise<void>) | undefined;
+      const racing: FileStore = {
+        ...store,
+        async list(path) {
+          const entries = await store.list(path);
+          const run = duringListing;
+          duringListing = undefined;
+          if (run) await run();
+          return entries;
+        },
+      };
+
+      const cache = new BlobCache(racing, 'cache', 1000);
+      duringListing = () => cache.put('icon', 'late', bytes(10));
+      await cache.prune();
+
+      expect(cache.totalBytes).toBe(10);
+    });
+
     it('evicts least-recently-used blobs until it fits', async () => {
       const { cache } = make(250);
       await cache.put('icon', 'oldest', bytes(100));
@@ -134,5 +159,25 @@ describe('BlobCache', () => {
       expect(await cache.get('icon', 'newest')).toBeDefined();
       expect(cache.totalBytes).toBeLessThanOrEqual(250);
     });
+  });
+
+  it('stays dirty when the index write fails, so the next flush retries', async () => {
+    const store = createMemoryFileStore();
+    let broken = true;
+    const flaky: FileStore = {
+      ...store,
+      async write(path, data) {
+        if (broken && path.endsWith('index.json')) throw new Error('storage is gone');
+        return store.write(path, data);
+      },
+    };
+
+    const cache = new BlobCache(flaky, 'cache');
+    await cache.put('icon', 'a', bytes(5));
+    await expect(cache.flush()).rejects.toThrow('storage is gone');
+
+    broken = false;
+    await cache.flush();
+    expect(await store.read('cache/index.json')).toBeDefined();
   });
 });

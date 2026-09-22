@@ -175,6 +175,21 @@ describe('LocalSource fetching', () => {
     expect(await source.fetchIcon(version!)).toEqual(PNG_MAGIC);
   });
 
+  it('re-extracts an icon that was evicted while its meta entry survived', async () => {
+    // meta and icon are separate index entries with their own LRU seq, so the
+    // icon can go while #read still short-circuits on the cached meta.
+    const h = harness();
+    await writeTarball(h.files, '/vsix/lint.tgz', 'lint', '1.0.0');
+    const source = new LocalSource('local', '/vsix', 3, h.deps);
+    const [version] = await source.list();
+    expect(await source.fetchIcon(version!)).toEqual(PNG_MAGIC);
+
+    const icons = await h.files.list('cache/icon');
+    await Promise.all(icons.map((entry) => h.files.remove(`cache/icon/${entry.name}`)));
+
+    expect(await source.fetchIcon(version!)).toEqual(PNG_MAGIC);
+  });
+
   it('returns the vsix bytes', async () => {
     const h = harness();
     await writeTarball(h.files, '/vsix/lint.tgz', 'lint', '1.0.0');

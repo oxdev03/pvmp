@@ -57,6 +57,7 @@ export class CatalogService {
   #versions: ExtensionVersion[] | undefined;
   #loading: Promise<ExtensionVersion[]> | undefined;
   #platform: TargetPlatform | undefined;
+  #generation = 0;
 
   constructor(private readonly deps: CatalogDeps) {}
 
@@ -91,12 +92,21 @@ export class CatalogService {
     this.#sources = built;
     this.#order = built.map((source) => source.id);
     this.#errors = errors;
-    this.#versions = undefined;
+    this.invalidate();
     this.deps.log.info(`configured ${built.length} source(s): ${this.#order.join(', ') || 'none'}`);
   }
 
+  /**
+   * Drops the cached catalog and abandons any load already in flight.
+   *
+   * A load started before a reload was built from the previous provider list,
+   * which reloadSources() has since disposed. Joining it would show extensions
+   * from a source the user just removed, and errors from disposed ones.
+   */
   invalidate(): void {
     this.#versions = undefined;
+    this.#loading = undefined;
+    this.#generation++;
   }
 
   /**
@@ -108,11 +118,14 @@ export class CatalogService {
    */
   async #load(): Promise<ExtensionVersion[]> {
     if (this.#versions) return this.#versions;
+    if (this.#loading) return this.#loading;
 
-    this.#loading ??= (async () => {
+    const generation = this.#generation;
+    const sources = this.#sources;
+    const pending: Promise<ExtensionVersion[]> = (async () => {
       const errors: SourceError[] = [];
       const results = await Promise.all(
-        this.#sources.map(async (source) => {
+        sources.map(async (source) => {
           try {
             return await source.list();
           } catch (error) {
@@ -125,14 +138,21 @@ export class CatalogService {
         }),
       );
 
-      this.#versions = results.flat();
-      this.#runtimeErrors = errors;
-      return this.#versions;
+      const versions = results.flat();
+      // ponytail: invalidation discards the result, it does not cancel the
+      // listing. The caller that started it sees this stale answer once;
+      // everyone after the reload gets the reload's own load.
+      if (generation === this.#generation) {
+        this.#versions = versions;
+        this.#runtimeErrors = errors;
+      }
+      return versions;
     })().finally(() => {
-      this.#loading = undefined;
+      if (this.#loading === pending) this.#loading = undefined;
     });
 
-    return this.#loading;
+    this.#loading = pending;
+    return pending;
   }
 
   async snapshot(): Promise<CatalogSnapshot> {

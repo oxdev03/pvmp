@@ -142,6 +142,12 @@ export class BlobCache {
   async #reconcile(): Promise<void> {
     await this.#load();
 
+    // Snapshotted before the listing: anything added to the index while the
+    // listing is in flight (refresh() emits catalogChanged, so the webview's
+    // getIcon puts race prune by construction) is newer than what we are
+    // looking at and must not be treated as missing from disk.
+    const known = new Set(this.#index.keys());
+
     const kinds = Object.keys(EXTENSION) as CacheKind[];
     const listings = await Promise.all(
       kinds.map((kind) => this.store.list(`${this.root}/${kind}`)),
@@ -164,7 +170,7 @@ export class BlobCache {
     }
 
     const seen = new Set(onDisk);
-    for (const path of Array.from(this.#index.keys())) {
+    for (const path of known) {
       if (seen.has(path)) continue;
       this.#index.delete(path);
       this.#dirty = true;
@@ -192,11 +198,18 @@ export class BlobCache {
 
   async flush(): Promise<void> {
     if (!this.#dirty) return;
+    // Cleared up front so a put during the write is not swallowed, and put
+    // back on failure so the index stays retryable rather than silently lost.
     this.#dirty = false;
     const payload = Object.fromEntries(this.#index);
-    await this.store.write(
-      `${this.root}/${INDEX_PATH}`,
-      new TextEncoder().encode(JSON.stringify(payload)),
-    );
+    try {
+      await this.store.write(
+        `${this.root}/${INDEX_PATH}`,
+        new TextEncoder().encode(JSON.stringify(payload)),
+      );
+    } catch (error) {
+      this.#dirty = true;
+      throw error;
+    }
   }
 }

@@ -228,6 +228,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
 export async function deactivate(): Promise<void> {
   DetailsPanel.disposeCurrent();
-  await activeCache?.flush();
+  try {
+    await activeCache?.flush();
+  } catch {
+    // Nothing useful to do: the window is closing and there is nowhere left to
+    // report to. A lost index costs a re-download; a rejected deactivate() is
+    // an error notification the user can do nothing about.
+  }
   activeCache = undefined;
 }

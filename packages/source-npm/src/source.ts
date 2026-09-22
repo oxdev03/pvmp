@@ -18,7 +18,7 @@ import {
 import type { AdapterContext, CatalogAdapter } from './adapters/index.ts';
 import { CATALOG_ADAPTERS, detectAdapter } from './adapters/index.ts';
 import type { HttpContext } from './http.ts';
-import { getBytes, getJson, getStream, joinUrl } from './http.ts';
+import { getBytes, getJson, getStream, joinUrl, redactUrl } from './http.ts';
 import type { Packument } from './packument.ts';
 import { encodePackageName, isPvmpPackage, packumentEntries } from './packument.ts';
 
@@ -143,7 +143,7 @@ export class NpmSource implements SourceProvider {
     if (notModified && cached) return cached.packument;
     if (!value) {
       if (cached) return cached.packument;
-      throw new SourceFailure(this.id, 'parse', `${url} returned no packument`);
+      throw new SourceFailure(this.id, 'parse', `${redactUrl(url)} returned no packument`);
     }
 
     await this.deps.cache.putJson(key, { etag, packument: value } satisfies CachedPackument);
