@@ -5,7 +5,7 @@ import type {
   InstallResult,
   Transport,
 } from '@pvmp/contract';
-import { encodeCacheKey } from '@pvmp/core';
+import type { BlobCache } from '@pvmp/core';
 import * as vscode from 'vscode';
 
 import type { CatalogService } from '../catalog.ts';
@@ -20,12 +20,13 @@ export interface HostApiDeps {
   installer: Installer;
   state: ExtensionState;
   tokens: TokenStore;
+  cache: BlobCache;
   log: vscode.LogOutputChannel;
   /** Opens the details panel for an extension. */
   openDetails: (extensionId: string) => void;
   /** Re-reads every source and notifies all webviews. */
   refresh: () => Promise<void>;
-  /** globalStorageUri; icons are published under it for the webview to load. */
+  /** globalStorageUri: the cache's FileStore root, and a webview resource root. */
   storage: vscode.Uri;
 }
 
@@ -47,22 +48,17 @@ export function createHostApi(deps: HostApiDeps, webview: vscode.Webview): HostA
       deps.catalog.details(extensionId, version),
 
     async getIcon(extensionId: string, version: string): Promise<string | undefined> {
-      // Published as a file the webview loads by URI, rather than sent over
-      // the bridge as base64 the way v1 inlined icons (SPEC.md §6).
-      const target = vscode.Uri.joinPath(
-        deps.storage,
-        'icons',
-        `${encodeCacheKey(`${extensionId}@${version}`)}.png`,
-      );
-
-      if (!(await exists(target))) {
+      // Served as a file the webview loads by URI, rather than sent over the
+      // bridge as base64 the way v1 inlined icons (SPEC.md §6). Kept in the
+      // BlobCache so it is size-capped and evicted like every other blob.
+      const key = `webview:${extensionId}@${version}`;
+      if (!(await deps.cache.get('icon', key))) {
         const bytes = await deps.catalog.icon(extensionId, version);
         if (!bytes) return undefined;
-        await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(deps.storage, 'icons'));
-        await vscode.workspace.fs.writeFile(target, bytes);
+        await deps.cache.put('icon', key, bytes);
       }
-
-      return webview.asWebviewUri(target).toString();
+      const path = deps.cache.path('icon', key).split('/');
+      return webview.asWebviewUri(vscode.Uri.joinPath(deps.storage, ...path)).toString();
     },
 
     async install(extensionId: string, version: string): Promise<InstallResult> {
@@ -107,19 +103,8 @@ export function createHostApi(deps: HostApiDeps, webview: vscode.Webview): HostA
       return Promise.resolve();
     },
 
-    async addLocalSource(): Promise<void> {
-      if (await addLocalSource()) await deps.refresh();
-    },
+    addLocalSource: () => addLocalSource(),
   };
-}
-
-async function exists(uri: vscode.Uri): Promise<boolean> {
-  try {
-    await vscode.workspace.fs.stat(uri);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /** Transport over a VS Code webview's message channel. */

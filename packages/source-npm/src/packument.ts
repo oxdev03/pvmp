@@ -1,4 +1,5 @@
 import type { PvmpPackageJson } from '@pvmp/core';
+import { isRecord } from '@pvmp/core';
 
 /** One version entry in a packument: the published package.json plus `dist`. */
 export interface PackumentVersion extends PvmpPackageJson {
@@ -54,8 +55,7 @@ export function packumentEntries(packument: Packument): PackumentEntry[] {
 
 /** Only packages carrying a `pvmp` block are ours; the rest of the registry is not. */
 export function isPvmpPackage(manifest: PackumentVersion): boolean {
-  const block = manifest.pvmp;
-  return typeof block === 'object' && block !== null && !Array.isArray(block);
+  return isRecord(manifest.pvmp);
 }
 
 /** npm requires the scope separator to be percent-encoded in a path. */

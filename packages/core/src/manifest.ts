@@ -28,7 +28,8 @@ export interface ManifestContext {
 
 const EXTENSION_ID = /^[a-z0-9][a-z0-9-]*\.[a-z0-9][a-z0-9-]*$/i;
 
-function str(value: unknown): string | undefined {
+/** The value when it is a non-empty string; settings and registries both send junk. */
+export function nonEmptyString(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
@@ -36,16 +37,18 @@ function strArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
 }
 
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function record(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined;
+  return isRecord(value) ? value : undefined;
 }
 
 /** `{ url }` objects and bare strings both appear in the wild. */
 function urlish(value: unknown): string | undefined {
   if (typeof value === 'string') return value || undefined;
-  return str(record(value)?.['url']);
+  return nonEmptyString(record(value)?.['url']);
 }
 
 /**
@@ -56,10 +59,10 @@ function urlish(value: unknown): string | undefined {
  * conform to the pvmp format.
  */
 export function toExtensionVersion(raw: PvmpPackageJson, ctx: ManifestContext): ExtensionVersion {
-  const packageName = str(raw.name);
+  const packageName = nonEmptyString(raw.name);
   if (!packageName) throw new ManifestError(ctx.locator, 'package.json has no "name"');
 
-  const version = str(raw.version);
+  const version = nonEmptyString(raw.version);
   if (!version) throw new ManifestError(ctx.locator, 'package.json has no "version"');
 
   const pvmp = record(raw.pvmp);
@@ -67,13 +70,13 @@ export function toExtensionVersion(raw: PvmpPackageJson, ctx: ManifestContext): 
     throw new ManifestError(ctx.locator, 'package.json has no "pvmp" block; not a pvmp package');
   }
 
-  const extensionId = str(pvmp['extensionId']);
+  const extensionId = nonEmptyString(pvmp['extensionId']);
   if (!extensionId) throw new ManifestError(ctx.locator, 'pvmp.extensionId is missing');
   if (!EXTENSION_ID.test(extensionId)) {
     throw new ManifestError(ctx.locator, `pvmp.extensionId "${extensionId}" is not publisher.name`);
   }
 
-  const rawTarget = str(pvmp['targetPlatform']) ?? 'universal';
+  const rawTarget = nonEmptyString(pvmp['targetPlatform']) ?? 'universal';
   if (!isTargetPlatform(rawTarget)) {
     throw new ManifestError(
       ctx.locator,
@@ -91,11 +94,11 @@ export function toExtensionVersion(raw: PvmpPackageJson, ctx: ManifestContext): 
     version,
     targetPlatform,
     preRelease: pvmp['preRelease'] === true,
-    engine: str(engines?.['vscode']) ?? '*',
-    displayName: str(pvmp['displayName']) ?? extensionId,
+    engine: nonEmptyString(engines?.['vscode']) ?? '*',
+    displayName: nonEmptyString(pvmp['displayName']) ?? extensionId,
     publisher,
-    publisherDisplayName: str(pvmp['publisherDisplayName']) ?? publisher,
-    description: str(raw.description) ?? '',
+    publisherDisplayName: nonEmptyString(pvmp['publisherDisplayName']) ?? publisher,
+    description: nonEmptyString(raw.description) ?? '',
     categories: strArray(raw.categories),
     sourceId: ctx.sourceId,
     locator: ctx.locator,
@@ -105,9 +108,9 @@ export function toExtensionVersion(raw: PvmpPackageJson, ctx: ManifestContext): 
 
 export function toExtensionLinks(raw: PvmpPackageJson): ExtensionLinks {
   const repository = urlish(raw.repository);
-  const homepage = str(raw.homepage);
+  const homepage = nonEmptyString(raw.homepage);
   const bugs = urlish(raw.bugs);
-  const license = str(raw.license);
+  const license = nonEmptyString(raw.license);
   return {
     ...(repository ? { repository } : {}),
     ...(homepage ? { homepage } : {}),

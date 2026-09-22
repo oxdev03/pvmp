@@ -57,7 +57,8 @@ export class BlobCache {
     private readonly maxBytes = 200 * 1024 * 1024,
   ) {}
 
-  #path(kind: CacheKind, key: string): string {
+  /** Where a blob lives, relative to the FileStore root. */
+  path(kind: CacheKind, key: string): string {
     return `${this.root}/${kind}/${encodeCacheKey(key)}.${EXTENSION[kind]}`;
   }
 
@@ -82,7 +83,7 @@ export class BlobCache {
 
   async get(kind: CacheKind, key: string): Promise<Uint8Array | undefined> {
     await this.#load();
-    const path = this.#path(kind, key);
+    const path = this.path(kind, key);
     const data = await this.store.read(path);
     if (!data) {
       this.#index.delete(path);
@@ -95,7 +96,7 @@ export class BlobCache {
 
   async put(kind: CacheKind, key: string, data: Uint8Array): Promise<void> {
     await this.#load();
-    const path = this.#path(kind, key);
+    const path = this.path(kind, key);
     await this.store.write(path, data);
     this.#index.set(path, { size: data.length, seq: this.#seq++ });
     this.#dirty = true;

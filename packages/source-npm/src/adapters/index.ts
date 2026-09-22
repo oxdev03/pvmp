@@ -1,5 +1,5 @@
-import { jfrogAdapter } from './jfrog.ts';
-import { nexusAdapter } from './nexus.ts';
+import { JFROG_MARKER, jfrogAdapter } from './jfrog.ts';
+import { NEXUS_MARKER, nexusAdapter } from './nexus.ts';
 import type { CatalogAdapter } from './types.ts';
 import { verdaccioAdapter } from './verdaccio.ts';
 
@@ -22,7 +22,7 @@ export const CATALOG_ADAPTERS: Record<string, CatalogAdapter> = {
  * wrong listing API produces an empty catalog with no visible cause.
  */
 export function detectAdapter(registry: string): CatalogAdapter | undefined {
-  if (registry.includes('/api/npm/')) return jfrogAdapter;
-  if (registry.includes('/repository/')) return nexusAdapter;
+  if (registry.includes(JFROG_MARKER)) return jfrogAdapter;
+  if (registry.includes(NEXUS_MARKER)) return nexusAdapter;
   return undefined;
 }

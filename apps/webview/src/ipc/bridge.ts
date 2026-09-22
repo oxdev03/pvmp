@@ -12,31 +12,22 @@ declare global {
   }
 }
 
-let cached: VsCodeApi | undefined;
-
-/**
- * `acquireVsCodeApi` throws if called more than once per webview, and React
- * strict mode mounts twice in development, so it is memoized here.
- */
-export function getVsCodeApi(): VsCodeApi {
-  if (cached) return cached;
-  const acquire = globalThis.window?.acquireVsCodeApi;
-  if (!acquire) {
-    throw new Error('acquireVsCodeApi is unavailable: not running inside a VS Code webview');
-  }
-  cached = acquire();
-  return cached;
-}
-
 /**
  * The production transport.
+ *
+ * `acquireVsCodeApi` throws on a second call, so this must run once per
+ * document; the provider's client singleton guarantees that.
  *
  * The Playwright harness replaces `window.acquireVsCodeApi` rather than this
  * function, so tests drive the exact same code path, structured clone
  * included (SPEC.md §13.1).
  */
 export function createVsCodeTransport(): Transport {
-  const api = getVsCodeApi();
+  const acquire = globalThis.window?.acquireVsCodeApi;
+  if (!acquire) {
+    throw new Error('acquireVsCodeApi is unavailable: not running inside a VS Code webview');
+  }
+  const api = acquire();
   return {
     // Not window.postMessage: the VS Code webview API takes a single argument
     // and has no targetOrigin parameter.

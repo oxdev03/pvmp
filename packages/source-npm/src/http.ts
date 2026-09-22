@@ -1,5 +1,5 @@
 import type { Logger } from '@pvmp/core';
-import { httpErrorKind, SourceFailure } from '@pvmp/core';
+import { errorMessage, httpErrorKind, SourceFailure } from '@pvmp/core';
 
 export interface HttpContext {
   sourceId: string;
@@ -68,7 +68,7 @@ async function send(url: string, ctx: HttpContext, options: HttpOptions): Promis
     throw new SourceFailure(
       ctx.sourceId,
       'unreachable',
-      `Could not reach ${redactUrl(url)}: ${error instanceof Error ? error.message : String(error)}`,
+      `Could not reach ${redactUrl(url)}: ${errorMessage(error)}`,
       error,
     );
   }

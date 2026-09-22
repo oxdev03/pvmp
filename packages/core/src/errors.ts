@@ -24,6 +24,10 @@ export class ManifestError extends Error {
   }
 }
 
+export function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export function httpErrorKind(status: number): SourceErrorKind {
   if (status === 401 || status === 403) return 'auth';
   if (status >= 500 || status === 408 || status === 429) return 'unreachable';

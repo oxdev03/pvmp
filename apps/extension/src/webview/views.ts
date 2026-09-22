@@ -33,15 +33,10 @@ export class WebviewHub {
   }
 }
 
-function serve(
-  webview: vscode.Webview,
-  deps: HostApiDeps,
-  hub: WebviewHub,
-  log: vscode.LogOutputChannel,
-): vscode.Disposable {
+function serve(webview: vscode.Webview, deps: HostApiDeps, hub: WebviewHub): vscode.Disposable {
   const api = createHostApi(deps, webview);
   const host = serveIpc<HostApi, HostEvents>(api, createWebviewTransport(webview), {
-    onError: (method, error) => log.error(`ipc ${method} failed: ${String(error)}`),
+    onError: (method, error) => deps.log.error(`ipc ${method} failed: ${String(error)}`),
   });
   return hub.add(host);
 }
@@ -52,10 +47,8 @@ export class MarketplaceViewProvider implements vscode.WebviewViewProvider {
 
   constructor(
     private readonly extensionUri: vscode.Uri,
-    private readonly storage: vscode.Uri,
     private readonly deps: HostApiDeps,
     private readonly hub: WebviewHub,
-    private readonly log: vscode.LogOutputChannel,
   ) {}
 
   /** The activity-bar badge counting available updates. */
@@ -67,14 +60,14 @@ export class MarketplaceViewProvider implements vscode.WebviewViewProvider {
 
   resolveWebviewView(view: vscode.WebviewView): void {
     this.#view = view;
-    view.webview.options = webviewOptions(this.extensionUri, this.storage);
+    view.webview.options = webviewOptions(this.extensionUri, this.deps.storage);
     view.webview.html = buildWebviewHtml({
       webview: view.webview,
       extensionUri: this.extensionUri,
       entry: 'sidebar',
       title: 'Private Marketplace',
     });
-    const served = serve(view.webview, this.deps, this.hub, this.log);
+    const served = serve(view.webview, this.deps, this.hub);
     view.onDidDispose(() => {
       served.dispose();
       this.#view = undefined;
@@ -94,10 +87,8 @@ export class DetailsPanel {
   static show(
     extensionId: string,
     extensionUri: vscode.Uri,
-    storage: vscode.Uri,
     deps: HostApiDeps,
     hub: WebviewHub,
-    log: vscode.LogOutputChannel,
   ): void {
     const existing = DetailsPanel.current;
     if (existing) {
@@ -110,10 +101,10 @@ export class DetailsPanel {
       DETAILS_VIEW_TYPE,
       extensionId,
       { viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
-      { ...webviewOptions(extensionUri, storage), retainContextWhenHidden: false },
+      { ...webviewOptions(extensionUri, deps.storage), retainContextWhenHidden: false },
     );
 
-    DetailsPanel.current = new DetailsPanel(panel, extensionId, extensionUri, deps, hub, log);
+    DetailsPanel.current = new DetailsPanel(panel, extensionId, extensionUri, deps, hub);
   }
 
   static disposeCurrent(): void {
@@ -129,10 +120,9 @@ export class DetailsPanel {
     private readonly extensionUri: vscode.Uri,
     deps: HostApiDeps,
     hub: WebviewHub,
-    log: vscode.LogOutputChannel,
   ) {
     this.render();
-    this.disposables.push(serve(panel.webview, deps, hub, log));
+    this.disposables.push(serve(panel.webview, deps, hub));
     panel.onDidDispose(() => {
       for (const disposable of this.disposables) disposable.dispose();
       DetailsPanel.current = undefined;

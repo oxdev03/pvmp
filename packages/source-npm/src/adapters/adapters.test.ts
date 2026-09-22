@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { silentLog, stubFetch } from '../testing.ts';
-import { deriveBaseUrl, deriveRepo, jfrogAdapter, packageNameFromTarballPath } from './jfrog.ts';
+import { jfrogAdapter, packageNameFromTarballPath } from './jfrog.ts';
 import { nexusAdapter, qualifiedName } from './nexus.ts';
 import type { AdapterContext } from './types.ts';
+import { locateRepository } from './types.ts';
 import { verdaccioAdapter } from './verdaccio.ts';
 
 function ctx(overrides: Partial<AdapterContext> = {}): AdapterContext {
@@ -38,8 +39,23 @@ describe('jfrog url derivation', () => {
 
   it('derives the product base url and repo from an npm registry url', () => {
     const registry = 'https://art.corp/artifactory/api/npm/npm-local/';
-    expect(deriveBaseUrl(registry)).toBe('https://art.corp/artifactory');
-    expect(deriveRepo(registry)).toBe('npm-local');
+    expect(locateRepository(ctx({ registry }), 'jfrog', '/api/npm/')).toEqual({
+      base: 'https://art.corp/artifactory',
+      repo: 'npm-local',
+    });
+  });
+
+  it('lets explicit baseUrl and repo settings win over the derived ones', () => {
+    const located = locateRepository(
+      ctx({
+        registry: 'https://art.corp/artifactory/api/npm/npm-local/',
+        repo: 'other',
+        baseUrl: 'https://b',
+      }),
+      'jfrog',
+      '/api/npm/',
+    );
+    expect(located).toEqual({ base: 'https://b', repo: 'other' });
   });
 });
 

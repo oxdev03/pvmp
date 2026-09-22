@@ -1,4 +1,5 @@
 import type { RawSourceConfig } from '@pvmp/core';
+import { isRecord } from '@pvmp/core';
 import * as vscode from 'vscode';
 
 export const SECTION = 'pvmp';
@@ -16,17 +17,18 @@ export function readSettings(): PvmpSettings {
   const raw = config.get<unknown[]>('sources', []);
 
   return {
-    sources: raw.filter(
-      (entry): entry is RawSourceConfig =>
-        typeof entry === 'object' && entry !== null && !Array.isArray(entry),
-    ),
+    sources: raw.filter(isRecord),
     autoUpdate: config.get<boolean>('autoUpdate', false),
     checkInterval: config.get<number>('checkInterval', 3600),
     cacheSizeMb: config.get<number>('cacheSizeMb', 200),
   };
 }
 
-export async function addLocalSource(): Promise<boolean> {
+/**
+ * Appends picked folders to pvmp.sources. The write itself triggers the
+ * refresh, through onDidChangeConfiguration.
+ */
+export async function addLocalSource(): Promise<void> {
   const picked = await vscode.window.showOpenDialog({
     canSelectFiles: false,
     canSelectFolders: true,
@@ -34,7 +36,7 @@ export async function addLocalSource(): Promise<boolean> {
     openLabel: 'Use as marketplace source',
     title: 'Select folders containing .tgz extension packages',
   });
-  if (!picked?.length) return false;
+  if (!picked?.length) return;
 
   const config = vscode.workspace.getConfiguration(SECTION);
   const existing = config.get<RawSourceConfig[]>('sources', []);
@@ -47,10 +49,9 @@ export async function addLocalSource(): Promise<boolean> {
     .filter((path) => !known.has(path))
     .map((path): RawSourceConfig => ({ type: 'local', path }));
 
-  if (added.length === 0) return false;
+  if (added.length === 0) return;
 
   await config.update('sources', [...existing, ...added], vscode.ConfigurationTarget.Global);
-  return true;
 }
 
 /**

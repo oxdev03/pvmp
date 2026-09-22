@@ -1,6 +1,8 @@
 import { getJson, joinUrl } from '../http.ts';
 import type { AdapterContext, CatalogAdapter } from './types.ts';
-import { matchesScope } from './types.ts';
+import { locateRepository, matchesScope } from './types.ts';
+
+export const NEXUS_MARKER = '/repository/';
 
 interface ComponentsResponse {
   items?: { name?: unknown; group?: unknown; format?: unknown }[];
@@ -20,13 +22,7 @@ export const nexusAdapter: CatalogAdapter = {
   id: 'nexus',
 
   async listPackages(ctx: AdapterContext): Promise<string[]> {
-    const base = ctx.baseUrl ?? deriveBaseUrl(ctx.registry);
-    const repo = ctx.repo ?? deriveRepo(ctx.registry);
-    if (!repo) {
-      throw new Error(
-        `nexus source ${ctx.sourceId} needs "repo", or a registry URL ending in /repository/<repo>/`,
-      );
-    }
+    const { base, repo } = locateRepository(ctx, 'nexus', NEXUS_MARKER);
 
     const names = new Set<string>();
     let token: string | undefined;
@@ -62,16 +58,4 @@ export function qualifiedName(item: { name?: unknown; group?: unknown }): string
   const group = typeof item?.group === 'string' && item.group.length > 0 ? item.group : undefined;
   if (!group) return name;
   return name.startsWith(`${group}/`) ? name : `${group}/${name}`;
-}
-
-/** `https://nexus.corp/repository/npm-hosted/` -> `https://nexus.corp` */
-export function deriveBaseUrl(registry: string): string {
-  const index = registry.indexOf('/repository/');
-  return index === -1 ? registry.replace(/\/+$/, '') : registry.slice(0, index);
-}
-
-/** `https://nexus.corp/repository/npm-hosted/` -> `npm-hosted` */
-export function deriveRepo(registry: string): string | undefined {
-  const match = /\/repository\/([^/]+)/.exec(registry);
-  return match?.[1];
 }

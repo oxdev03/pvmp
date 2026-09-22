@@ -2,7 +2,6 @@ import type * as vscode from 'vscode';
 
 const PRE_RELEASE = 'preReleaseOptIn';
 const FAILURES = 'installFailures';
-const LAST_CHECK = 'lastCheck';
 
 export interface InstallFailure {
   attempts: number;
@@ -29,14 +28,6 @@ export class ExtensionState {
     if (on) current.add(extensionId);
     else current.delete(extensionId);
     await this.memento.update(PRE_RELEASE, [...current]);
-  }
-
-  get lastCheck(): number {
-    return this.memento.get<number>(LAST_CHECK, 0);
-  }
-
-  async setLastCheck(when: number): Promise<void> {
-    await this.memento.update(LAST_CHECK, when);
   }
 
   #failures(): Record<string, InstallFailure> {

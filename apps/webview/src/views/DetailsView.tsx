@@ -6,6 +6,7 @@ import { ExtensionIcon } from '../components/ExtensionIcon.tsx';
 import { Markdown } from '../components/Markdown.tsx';
 import { useHost } from '../ipc/provider.tsx';
 import {
+  isBusy,
   useCatalogSync,
   useDetails,
   useInstall,
@@ -57,14 +58,13 @@ export function DetailsView({ extensionId }: DetailsViewProps) {
 
   const { entry, links } = data;
   const version = entry.versions.find((v) => v.version === data.selectedVersion);
-  const busy = progress !== undefined && progress.phase !== 'done' && progress.phase !== 'failed';
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <Hero
         entry={entry}
         selectedVersion={data.selectedVersion}
-        busy={busy}
+        busy={isBusy(progress)}
         onSelectVersion={setSelected}
         onInstall={(v) => install.mutate({ extensionId, version: v })}
         onUninstall={() => uninstall.mutate(extensionId)}

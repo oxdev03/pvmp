@@ -3,6 +3,7 @@ import { parseTar } from 'nanotar';
 
 import { ManifestError } from './errors.ts';
 import type { PvmpPackageJson } from './manifest.ts';
+import { isRecord } from './manifest.ts';
 import { normalizeEntryName, readTarGzipStream } from './tar.ts';
 
 /** Entry names inside a pvmp package, after `package/` is stripped. */
@@ -32,10 +33,8 @@ function parsePackageJson(bytes: Uint8Array, locator: string): PvmpPackageJson {
   } catch (error) {
     throw new ManifestError(locator, `package.json is not valid JSON: ${String(error)}`);
   }
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new ManifestError(locator, 'package.json is not an object');
-  }
-  return parsed as PvmpPackageJson;
+  if (!isRecord(parsed)) throw new ManifestError(locator, 'package.json is not an object');
+  return parsed;
 }
 
 /** Reads a complete npm tarball already held in memory. */
@@ -70,6 +69,13 @@ export function readPvmpTarball(bytes: Uint8Array, locator: string): PvmpTarball
     ...(changelog ? { changelog: decoder.decode(changelog) } : {}),
     ...(icon ? { icon } : {}),
   };
+}
+
+/** The installable payload; a package without one is not a pvmp package. */
+export function readVsix(bytes: Uint8Array, locator: string): Uint8Array {
+  const { vsix } = readPvmpTarball(bytes, locator);
+  if (!vsix) throw new ManifestError(locator, 'tarball contains no extension.vsix');
+  return vsix;
 }
 
 /**

@@ -1,8 +1,9 @@
 import type { InstallProgress, InstallResult } from '@pvmp/contract';
+import type { Logger } from '@pvmp/core';
+import { errorMessage } from '@pvmp/core';
 import * as vscode from 'vscode';
 
 import type { CatalogService } from './catalog.ts';
-import { toSourceError } from './catalog.ts';
 import type { ExtensionState } from './state.ts';
 
 const VS_INSTALL = 'workbench.extensions.installExtension';
@@ -11,7 +12,7 @@ const VS_UNINSTALL = 'workbench.extensions.uninstallExtension';
 export interface InstallerDeps {
   catalog: CatalogService;
   state: ExtensionState;
-  log: { info(m: string): void; warn(m: string): void; error(m: string | Error): void };
+  log: Logger;
   storage: vscode.Uri;
   onProgress: (progress: InstallProgress) => void;
 }
@@ -60,7 +61,7 @@ export class Installer {
 
       return { ok: true, reloadRequired: wasInstalled };
     } catch (error) {
-      const { message } = toSourceError(extensionId, error);
+      const message = errorMessage(error);
       this.deps.log.error(`failed to install ${extensionId}@${version}: ${message}`);
       await this.deps.state.recordFailure(extensionId, version);
       report('failed', message);
@@ -80,7 +81,7 @@ export class Installer {
       this.deps.log.info(`uninstalled ${extensionId}`);
       return { ok: true, reloadRequired: true };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       this.deps.log.error(`failed to uninstall ${extensionId}: ${message}`);
       return { ok: false, reloadRequired: false, error: message };
     }

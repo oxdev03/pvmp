@@ -1,4 +1,5 @@
-import type { SourceDeps } from '@pvmp/core';
+import type { CatalogSnapshot } from '@pvmp/contract';
+import type { Logger, SourceDeps } from '@pvmp/core';
 import { BlobCache, SourceFactoryRegistry } from '@pvmp/core';
 import { localSourceFactory } from '@pvmp/source-local';
 import { npmSourceFactory } from '@pvmp/source-npm';
@@ -8,7 +9,6 @@ import { CatalogService } from './catalog.ts';
 import { addLocalSource, createPathResolver, readSettings, SECTION } from './config.ts';
 import { createVscodeFileStore } from './filestore.ts';
 import { Installer, offerReload } from './install.ts';
-import { createLogger } from './log.ts';
 import { TokenStore } from './secrets.ts';
 import { ExtensionState } from './state.ts';
 import type { HostApiDeps } from './webview/api.ts';
@@ -36,8 +36,10 @@ export const COMMANDS = {
 let activeCache: BlobCache | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
+  // A LogOutputChannel already is a Logger, with level filtering the user can
+  // raise from the Output panel without a reload (SPEC.md §7.4).
   const channel = vscode.window.createOutputChannel('Private Marketplace', { log: true });
-  const log = createLogger(channel);
+  const log: Logger = channel;
   context.subscriptions.push(channel);
 
   const storage = context.globalStorageUri;
@@ -93,13 +95,18 @@ export function activate(context: vscode.ExtensionContext): void {
 
   let sidebar: MarketplaceViewProvider | undefined;
 
-  const refresh = async (): Promise<void> => {
-    catalog.reloadSources();
+  /** Re-reads the catalog, then updates the badge and every open webview. */
+  const republish = async (): Promise<CatalogSnapshot> => {
     catalog.invalidate();
-    await state.setLastCheck(Date.now());
     const snapshot = await catalog.snapshot();
     sidebar?.setBadge(snapshot.entries.filter((e) => e.status === 'update-available').length);
     hub.emit('catalogChanged');
+    return snapshot;
+  };
+
+  const refresh = async (): Promise<void> => {
+    catalog.reloadSources();
+    await republish();
     await cache.prune();
     await cache.flush();
   };
@@ -109,14 +116,15 @@ export function activate(context: vscode.ExtensionContext): void {
     installer,
     state,
     tokens,
+    cache,
     log: channel,
     storage,
     openDetails: (extensionId) =>
-      DetailsPanel.show(extensionId, context.extensionUri, storage, apiDeps, hub, channel),
+      DetailsPanel.show(extensionId, context.extensionUri, apiDeps, hub),
     refresh,
   };
 
-  sidebar = new MarketplaceViewProvider(context.extensionUri, storage, apiDeps, hub, channel);
+  sidebar = new MarketplaceViewProvider(context.extensionUri, apiDeps, hub);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(SIDEBAR_VIEW_ID, sidebar, {
       webviewOptions: { retainContextWhenHidden: false },
@@ -126,9 +134,8 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand(COMMANDS.refresh, () => refresh()),
 
-    vscode.commands.registerCommand(COMMANDS.addSource, async () => {
-      if (await addLocalSource()) await refresh();
-    }),
+    // Writing pvmp.sources fires onDidChangeConfiguration, which refreshes.
+    vscode.commands.registerCommand(COMMANDS.addSource, () => addLocalSource()),
 
     vscode.commands.registerCommand(COMMANDS.openSettings, () =>
       vscode.commands.executeCommand('workbench.action.openSettings', `@ext:oxdev03.pvmp`),
@@ -153,8 +160,7 @@ export function activate(context: vscode.ExtensionContext): void {
         () => installer.updateAll(),
       );
 
-      catalog.invalidate();
-      hub.emit('catalogChanged');
+      await republish();
 
       if (result.updated === 0 && result.failed === 0) {
         void vscode.window.showInformationMessage('pvmp: everything is up to date.');
@@ -186,12 +192,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const backgroundCheck = async (): Promise<void> => {
     try {
-      catalog.invalidate();
-      const snapshot = await catalog.snapshot();
+      const snapshot = await republish();
       const outdated = snapshot.entries.filter((entry) => entry.status === 'update-available');
-      sidebar?.setBadge(outdated.length);
-      hub.emit('catalogChanged');
-      await state.setLastCheck(Date.now());
 
       if (outdated.length === 0) return;
       if (!readSettings().autoUpdate) return;

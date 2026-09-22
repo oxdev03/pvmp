@@ -97,23 +97,20 @@ export function SidebarView() {
       {total === 0 ? (
         <EmptyState onAddSource={() => void host.addLocalSource()} />
       ) : (
-        <>
-          {groups.updates.length > 0 && (
-            <Section title="Updates Available" count={groups.updates.length}>
-              {renderRows(groups.updates)}
-            </Section>
-          )}
-          {groups.installed.length > 0 && (
-            <Section title="Installed" count={groups.installed.length}>
-              {renderRows(groups.installed)}
-            </Section>
-          )}
-          {groups.available.length > 0 && (
-            <Section title="Available" count={groups.available.length}>
-              {renderRows(groups.available)}
-            </Section>
-          )}
-        </>
+        (
+          [
+            ['Updates Available', groups.updates],
+            ['Installed', groups.installed],
+            ['Available', groups.available],
+          ] as const
+        ).map(
+          ([title, entries]) =>
+            entries.length > 0 && (
+              <Section key={title} title={title} count={entries.length}>
+                {renderRows(entries)}
+              </Section>
+            ),
+        )
       )}
     </div>
   );

@@ -27,6 +27,33 @@ export interface CatalogAdapter {
   listPackages(ctx: AdapterContext): Promise<string[]>;
 }
 
+/**
+ * Splits a registry URL shaped `<base><marker><repo>/` into the product's base
+ * URL and repository name, with explicit `baseUrl`/`repo` settings winning.
+ *
+ * `https://art.corp/artifactory/api/npm/npm-local/` with marker `/api/npm/`
+ * gives `https://art.corp/artifactory` and `npm-local`.
+ */
+export function locateRepository(
+  ctx: AdapterContext,
+  adapterId: string,
+  marker: string,
+): { base: string; repo: string } {
+  const index = ctx.registry.indexOf(marker);
+  const derivedBase =
+    index === -1 ? ctx.registry.replace(/\/+$/, '') : ctx.registry.slice(0, index);
+  const derivedRepo =
+    index === -1 ? '' : (ctx.registry.slice(index + marker.length).split('/')[0] ?? '');
+
+  const repo = ctx.repo ?? derivedRepo;
+  if (!repo) {
+    throw new Error(
+      `${adapterId} source ${ctx.sourceId} needs "repo", or a registry URL ending in ${marker}<repo>/`,
+    );
+  }
+  return { base: ctx.baseUrl ?? derivedBase, repo };
+}
+
 export function matchesScope(name: string, scope: string | undefined): boolean {
   if (!scope) return true;
   const prefix = scope.endsWith('/') ? scope : `${scope}/`;

@@ -9,8 +9,10 @@ import type {
 import {
   extractContent,
   ManifestError,
+  nonEmptyString,
   readIconFromStream,
   readPvmpTarball,
+  readVsix,
   SourceFailure,
   toExtensionVersion,
 } from '@pvmp/core';
@@ -36,10 +38,6 @@ export interface NpmSourceConfig {
 interface CachedPackument {
   etag: string | undefined;
   packument: Packument;
-}
-
-interface CachedContent {
-  content: ExtensionDetailContent;
 }
 
 /**
@@ -136,11 +134,11 @@ export class NpmSource implements SourceProvider {
     const cached = await this.deps.cache.getJson<CachedPackument>(key);
     const url = joinUrl(this.config.registry, encodePackageName(name));
 
-    const { value, etag, notModified } = await getJson<Packument>(url, http, {
+    const { value, etag } = await getJson<Packument>(url, http, {
       etag: cached?.etag,
     });
 
-    if (notModified && cached) return cached.packument;
+    // A 304 carries no body, so it lands here too.
     if (!value) {
       if (cached) return cached.packument;
       throw new SourceFailure(this.id, 'parse', `${redactUrl(url)} returned no packument`);
@@ -150,8 +148,17 @@ export class NpmSource implements SourceProvider {
     return value;
   }
 
+  /** Full tarball read, cached, for readme and changelog. */
   async fetchDetails(version: ExtensionVersion): Promise<ExtensionDetailContent> {
-    return (await this.#content(version)).content;
+    const key = this.#key(version);
+    const cached = await this.deps.cache.getJson<ExtensionDetailContent>(`details:${key}`);
+    if (cached) return cached;
+
+    const http = await this.#http();
+    const tarball = readPvmpTarball(await getBytes(version.locator, http), version.locator);
+    const content = await extractContent(tarball, this.deps.cache, key);
+    await this.deps.cache.putJson(`details:${key}`, content);
+    return content;
   }
 
   async fetchIcon(version: ExtensionVersion): Promise<Uint8Array | undefined> {
@@ -182,39 +189,11 @@ export class NpmSource implements SourceProvider {
 
   async fetchVsix(version: ExtensionVersion): Promise<Uint8Array> {
     const http = await this.#http();
-    const bytes = await getBytes(version.locator, http, {});
-
-    const tarball = readPvmpTarball(bytes, version.locator);
-    if (!tarball.vsix) {
-      throw new SourceFailure(
-        this.id,
-        'parse',
-        `${version.packageName}@${version.version} contains no extension.vsix`,
-      );
-    }
-    return tarball.vsix;
+    return readVsix(await getBytes(version.locator, http), version.locator);
   }
 
   #key(version: ExtensionVersion): string {
     return `${this.id}:${version.packageName}@${version.version}`;
-  }
-
-  /** Full tarball read, cached, for readme and changelog. */
-  async #content(version: ExtensionVersion): Promise<CachedContent> {
-    const key = this.#key(version);
-    const cached = await this.deps.cache.getJson<CachedContent>(`content:${key}`);
-    if (cached) return cached;
-
-    const http = await this.#http();
-    const bytes = await getBytes(version.locator, http, {});
-    const tarball = readPvmpTarball(bytes, version.locator);
-
-    const result: CachedContent = {
-      content: await extractContent(tarball, this.deps.cache, key),
-    };
-
-    await this.deps.cache.putJson(`content:${key}`, result);
-    return result;
   }
 }
 
@@ -222,38 +201,39 @@ export const npmSourceFactory: SourceFactory = {
   type: NPM_SOURCE_TYPE,
 
   create(config: RawSourceConfig, deps: SourceDeps): SourceProvider {
-    const id = typeof config.id === 'string' && config.id ? config.id : NPM_SOURCE_TYPE;
+    const id = nonEmptyString(config.id) ?? NPM_SOURCE_TYPE;
+    const known = Object.keys(CATALOG_ADAPTERS).join(', ');
 
-    if (typeof config.registry !== 'string' || config.registry.length === 0) {
-      throw new SourceFailure(id, 'config', 'npm source requires a "registry" URL');
-    }
+    const registry = nonEmptyString(config.registry);
+    if (!registry) throw new SourceFailure(id, 'config', 'npm source requires a "registry" URL');
 
-    const named = typeof config.adapter === 'string' ? CATALOG_ADAPTERS[config.adapter] : undefined;
-    if (typeof config.adapter === 'string' && !named) {
+    const requested = nonEmptyString(config.adapter);
+    const named = requested ? CATALOG_ADAPTERS[requested] : undefined;
+    if (requested && !named) {
       throw new SourceFailure(
         id,
         'config',
-        `unknown adapter "${config.adapter}"; expected one of ${Object.keys(CATALOG_ADAPTERS).join(', ')}`,
+        `unknown adapter "${requested}"; expected one of ${known}`,
       );
     }
 
-    const adapter = named ?? detectAdapter(config.registry);
+    const adapter = named ?? detectAdapter(registry);
     if (!adapter) {
       throw new SourceFailure(
         id,
         'config',
-        `could not infer a catalog adapter from "${String(config.registry)}"; set "adapter" to one of ${Object.keys(CATALOG_ADAPTERS).join(', ')}`,
+        `could not infer a catalog adapter from "${redactUrl(registry)}"; set "adapter" to one of ${known}`,
       );
     }
 
     return new NpmSource(
       {
         id,
-        registry: deps.resolvePath(config.registry),
+        registry: deps.resolvePath(registry),
         adapter,
-        scope: typeof config.scope === 'string' ? config.scope : undefined,
-        repo: typeof config.repo === 'string' ? config.repo : undefined,
-        baseUrl: typeof config.baseUrl === 'string' ? config.baseUrl : undefined,
+        scope: nonEmptyString(config.scope),
+        repo: nonEmptyString(config.repo),
+        baseUrl: nonEmptyString(config.baseUrl),
       },
       deps,
     );

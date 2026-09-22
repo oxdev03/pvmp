@@ -7,6 +7,7 @@
 import type { CatalogEntry, InstallProgress } from '@pvmp/contract';
 import type { MouseEvent } from 'react';
 
+import { isBusy } from '../ipc/queries.ts';
 import { ActionButton } from './ActionButton.tsx';
 import { ExtensionIcon } from './ExtensionIcon.tsx';
 import { METRICS } from './metrics.ts';
@@ -38,7 +39,6 @@ export function ExtensionRow({
   onUninstall,
 }: ExtensionRowProps) {
   const version = entry.installed?.version ?? entry.latest?.version;
-  const busy = progress !== undefined && progress.phase !== 'done' && progress.phase !== 'failed';
 
   return (
     <div
@@ -104,7 +104,7 @@ export function ExtensionRow({
             {entry.publisherDisplayName}
           </span>
           <div className="shrink-0">
-            {busy ? (
+            {isBusy(progress) ? (
               <span
                 data-testid={`progress-${entry.extensionId}`}
                 className="text-vscode-descriptionForeground text-[11px]"

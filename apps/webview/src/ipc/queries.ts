@@ -74,6 +74,11 @@ export function useCatalogSync(): void {
   );
 }
 
+/** True while an install is running; a finished or failed one is not busy. */
+export function isBusy(progress: InstallProgress | undefined): progress is InstallProgress {
+  return progress !== undefined && progress.phase !== 'done' && progress.phase !== 'failed';
+}
+
 /** Live install progress, keyed by extension id. */
 export function useInstallProgress(): Map<string, InstallProgress> {
   const [progress, setProgress] = useState<Map<string, InstallProgress>>(new Map());

@@ -7,7 +7,14 @@ import type {
   SourceFactory,
   SourceProvider,
 } from '@pvmp/core';
-import { extractContent, readPvmpTarball, SourceFailure, toExtensionVersion } from '@pvmp/core';
+import {
+  extractContent,
+  nonEmptyString,
+  readPvmpTarball,
+  readVsix,
+  SourceFailure,
+  toExtensionVersion,
+} from '@pvmp/core';
 
 export const LOCAL_SOURCE_TYPE = 'local';
 
@@ -79,11 +86,7 @@ export class LocalSource implements SourceProvider {
     if (!bytes) {
       throw new SourceFailure(this.id, 'unreachable', `${version.locator} no longer exists`);
     }
-    const tarball = readPvmpTarball(bytes, version.locator);
-    if (!tarball.vsix) {
-      throw new SourceFailure(this.id, 'parse', `${version.locator} contains no extension.vsix`);
-    }
-    return tarball.vsix;
+    return readVsix(bytes, version.locator);
   }
 
   /**
@@ -159,15 +162,14 @@ async function collectTarballs(files: FileStore, root: string, depth: number): P
 export const localSourceFactory: SourceFactory = {
   type: LOCAL_SOURCE_TYPE,
   create(config: RawSourceConfig, deps: SourceDeps): SourceProvider {
-    const id = typeof config.id === 'string' && config.id ? config.id : LOCAL_SOURCE_TYPE;
-    if (typeof config.path !== 'string' || config.path.length === 0) {
-      throw new SourceFailure(id, 'config', 'local source requires a "path"');
-    }
+    const id = nonEmptyString(config.id) ?? LOCAL_SOURCE_TYPE;
+    const path = nonEmptyString(config.path);
+    if (!path) throw new SourceFailure(id, 'config', 'local source requires a "path"');
     const depth =
       typeof config.depth === 'number' && Number.isInteger(config.depth) && config.depth > 0
         ? config.depth
         : DEFAULT_DEPTH;
 
-    return new LocalSource(id, deps.resolvePath(config.path), depth, deps);
+    return new LocalSource(id, deps.resolvePath(path), depth, deps);
   },
 };

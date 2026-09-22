@@ -6,9 +6,20 @@ import type {
   SourceError,
   TargetPlatform,
 } from '@pvmp/contract';
-import type { InstalledExtension, SourceDeps, SourceProvider } from '@pvmp/core';
-import type { SourceFactoryRegistry } from '@pvmp/core';
-import { buildCatalog, defaultSourceId, detectTargetPlatform, SourceFailure } from '@pvmp/core';
+import type {
+  InstalledExtension,
+  Logger,
+  SourceDeps,
+  SourceFactoryRegistry,
+  SourceProvider,
+} from '@pvmp/core';
+import {
+  buildCatalog,
+  defaultSourceId,
+  detectTargetPlatform,
+  errorMessage,
+  SourceFailure,
+} from '@pvmp/core';
 import * as vscode from 'vscode';
 
 import { readSettings } from './config.ts';
@@ -18,7 +29,7 @@ export interface CatalogDeps {
   registry: SourceFactoryRegistry;
   sourceDeps: SourceDeps;
   state: ExtensionState;
-  log: SourceDeps['log'];
+  log: Logger;
   onSourceError: (error: SourceError) => void;
 }
 
@@ -233,6 +244,6 @@ export function toSourceError(sourceId: string, error: unknown): SourceError {
   return {
     sourceId,
     kind: 'unknown',
-    message: error instanceof Error ? error.message : String(error),
+    message: errorMessage(error),
   };
 }
