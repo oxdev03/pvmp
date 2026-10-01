@@ -33,8 +33,8 @@ export class Installer {
         ...(message === undefined ? {} : { message }),
       });
 
-    // An update replaces a loaded extension, which is what makes VS Code ask
-    // for a reload; a first install usually does not.
+    // VS Code needs a reload to replace a loaded extension. A first install
+    // usually does not.
     const wasInstalled = isInstalled(extensionId);
     let temporary: vscode.Uri | undefined;
 
@@ -68,8 +68,8 @@ export class Installer {
       return { ok: false, reloadRequired: false, error: message };
     } finally {
       if (temporary) {
-        // Best effort: a leftover temp file is harmless, and on Windows the
-        // installer may still hold the handle briefly.
+        // A leftover temp file is harmless, and on Windows the installer may
+        // still hold it open.
         await vscode.workspace.fs.delete(temporary, { useTrash: false }).then(undefined, () => {});
       }
     }
@@ -88,10 +88,8 @@ export class Installer {
   }
 
   /**
-   * Installs every available update, skipping anything still in backoff.
-   *
-   * Prompts once at the end rather than reloading outright: v1 reloaded the
-   * window after every single install (SPEC.md §9).
+   * Installs every available update, skipping any still in backoff. The
+   * caller offers one reload at the end (SPEC.md §9).
    */
   async updateAll(): Promise<{ updated: number; failed: number; reloadRequired: boolean }> {
     const snapshot = await this.deps.catalog.snapshot();
@@ -110,8 +108,8 @@ export class Installer {
         continue;
       }
 
-      // Sequential on purpose: VS Code's install command serialises anyway,
-      // and concurrent installs make failures much harder to attribute.
+      // One at a time: VS Code serialises installs anyway, and a failure is
+      // easier to attribute.
       // oxlint-disable-next-line no-await-in-loop
       const result = await this.install(entry.extensionId, target.version);
       if (result.ok) {

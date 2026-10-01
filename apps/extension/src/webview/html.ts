@@ -8,11 +8,9 @@ export interface HtmlOptions {
   entry: WebviewEntry;
   title: string;
   /**
-   * Attributes to set on #root, keyed by their full attribute name.
-   *
-   * Full names rather than dataset keys on purpose: the HTML parser
-   * lowercases attribute names, so a camelCase key silently becomes
-   * unreadable through `dataset`. Use the constants in @pvmp/contract.
+   * Attributes for #root, keyed by full attribute name. Use the constants in
+   * @pvmp/contract: the HTML parser lowercases attribute names, so a
+   * camelCase key would be unreadable through `dataset`.
    */
   rootData?: Record<string, string>;
 }
@@ -38,7 +36,6 @@ export function buildWebviewHtml(options: HtmlOptions): string {
   const data = Object.entries(rootData)
     .map(([name, value]) => {
       if (!/^data-[a-z0-9-]+$/.test(name)) {
-        // Fail loudly rather than emit an attribute the webview cannot read.
         throw new Error(
           `Root attribute "${name}" must be lowercase kebab-case starting with "data-"`,
         );
@@ -48,18 +45,13 @@ export function buildWebviewHtml(options: HtmlOptions): string {
     .join('');
 
   /*
-   * script-src carries both a nonce and cspSource.
+   * script-src needs the nonce for the entry <script> and cspSource for the
+   * chunk it imports, because CSP does not pass a nonce on to imported
+   * modules. cspSource can only reach localResourceRoots: this extension's
+   * bundle and its cache.
    *
-   * The nonce authorises the entry <script>. The entry is an ES module that
-   * statically imports a shared chunk, and CSP does not propagate a nonce to
-   * imported modules, so the chunk needs its own allowance. cspSource is the
-   * webview's private origin, and localResourceRoots below restricts that
-   * origin to this extension's own bundle and cache directories, so nothing
-   * else can be loaded through it.
-   *
-   * img-src additionally allows https: and data: because README content is
-   * rendered here; it is sanitized in the webview as the other layer
-   * (SPEC.md §7.7).
+   * img-src allows https: and data: for images in READMEs, which the webview
+   * sanitizes (SPEC.md §7.7).
    */
   const csp = [
     `default-src 'none'`,
@@ -86,11 +78,7 @@ export function buildWebviewHtml(options: HtmlOptions): string {
 </html>`;
 }
 
-/**
- * The webview may read this extension's bundle and its metadata cache — the
- * cache is where extension icons live, served by URI rather than inlined as
- * base64 data URIs the way v1 did (SPEC.md §6).
- */
+/** The webview may load this extension's bundle and the cache, where icons live (SPEC.md §6). */
 export function webviewOptions(
   extensionUri: vscode.Uri,
   storageUri: vscode.Uri,

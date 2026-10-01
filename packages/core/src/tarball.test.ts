@@ -80,7 +80,7 @@ describe('readPvmpTarball', () => {
   });
 });
 
-/** Streams `bytes` in fixed-size chunks, counting how many are actually pulled. */
+/** Streams `bytes` in fixed-size chunks and counts how many the reader pulls. */
 function countingStream(bytes: Uint8Array, chunkSize: number) {
   const counter = { delivered: 0 };
   let offset = 0;
@@ -107,8 +107,8 @@ describe('readIconFromStream', () => {
   });
 
   it('stops pulling once the icon is found, leaving the vsix untransferred', async () => {
-    // 512KB of incompressible vsix after the metadata. A conforming package
-    // should cost a few KB, not the whole archive.
+    // 512KB of incompressible vsix after the metadata; reading the icon should
+    // cost a few KB.
     const tarball = buildTarball({ vsixBytes: 512 * 1024 });
     const { stream, counter } = countingStream(tarball, 1024);
 

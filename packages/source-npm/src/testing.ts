@@ -36,11 +36,8 @@ export interface FetchRecorder {
 }
 
 /**
- * A fetch stub driven by exact-or-prefix URL matching.
- *
- * Routes are recorded HTTP shapes rather than a live server: the JFrog and
- * Nexus adapters are fixture-verified by design (SPEC.md §17), and Verdaccio
- * additionally gets a real container test.
+ * A fetch stub that matches routes by exact URL or prefix. JFrog and Nexus
+ * are tested only this way (SPEC.md §17).
  */
 export function stubFetch(
   routes: Record<string, RouteResponse | ((url: string) => RouteResponse)>,

@@ -1,11 +1,9 @@
 /**
  * Theme variables for the standalone harness.
  *
- * Inside a real webview VS Code injects every `--vscode-*` colour itself.
- * Nothing injects them here, so these reproduce the defaults of Dark Modern,
- * Light Modern and Dark High Contrast for the tokens the UI actually reads.
- * They exist so Playwright can assert the same layout across all three
- * (SPEC.md §7.3), not to be a complete theme.
+ * VS Code injects `--vscode-*` colours into real webviews. The harness has
+ * no VS Code, so this file supplies the Dark Modern, Light Modern and Dark
+ * High Contrast values for the tokens the UI reads (SPEC.md §7.3).
  */
 export type ThemeName = 'dark' | 'light' | 'hc';
 

@@ -8,11 +8,10 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 /**
  * Loads the packaged bundle with a stub `vscode` module.
  *
- * This is the cheap stand-in for the extension-host tests we chose not to run
- * (SPEC.md §13): it will not catch VS Code API misuse, but it does catch the
- * bundling mistakes that otherwise surface only when a user installs the vsix
- * — a stray CJS/ESM interop failure, a missing external, top-level code that
- * throws, or a command declared in the manifest but never registered.
+ * Stands in for extension-host tests (SPEC.md §13). It misses VS Code API
+ * misuse, but catches the bundling mistakes that otherwise show up only after
+ * someone installs the vsix: CJS/ESM interop failures, a missing external,
+ * top-level code that throws, or a manifest command nobody registers.
  */
 const here = dirname(fileURLToPath(import.meta.url));
 const BUNDLE = join(here, 'dist', 'extension.cjs');

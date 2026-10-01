@@ -13,9 +13,9 @@ import { buildScenario, CHANGELOG, fixtureIcon, snapshot } from './fixtures.ts';
 /** Test control surface, reachable from Playwright via page.evaluate. */
 export interface MockControl {
   scenario: ScenarioName;
-  /** Emit a host event by hand, e.g. to assert the UI reacts to it. */
+  /** Emits a host event. */
   emit: <K extends keyof HostEvents & string>(event: K, ...args: Parameters<HostEvents[K]>) => void;
-  /** Calls made by the webview, in order. Lets tests assert on IPC traffic. */
+  /** Calls the webview made, in order. */
   calls: { method: string; args: unknown[] }[];
 }
 
@@ -30,10 +30,10 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 /**
  * Installs a fake extension host.
  *
- * It replaces `window.acquireVsCodeApi` rather than the app's transport, so
- * the whole IPC layer runs for real: request ids, timeouts, event fan-out and
- * the structured clone that `window.postMessage` performs. A payload the real
- * bridge could not carry fails here too (SPEC.md §13.1).
+ * It replaces `window.acquireVsCodeApi`, so the app's IPC code runs
+ * unchanged: request ids, timeouts, events, and the structured clone of
+ * `window.postMessage`. A payload the real bridge cannot carry fails here
+ * too (SPEC.md §13.1).
  */
 export function installMockHost(scenarioName: ScenarioName = 'default'): MockControl {
   const scenario: Scenario = buildScenario(scenarioName);
@@ -101,7 +101,7 @@ export function installMockHost(scenarioName: ScenarioName = 'default'): MockCon
       const emit = host.emit.bind(host);
       for (const phase of ['downloading', 'extracting', 'installing'] as const) {
         emit('installProgress', { extensionId, version, phase });
-        // Phases are deliberately sequential: this fake mimics a real install.
+        // One phase after another, like a real install.
         // oxlint-disable-next-line no-await-in-loop
         if (scenario.installDelayMs) await sleep(scenario.installDelayMs);
       }

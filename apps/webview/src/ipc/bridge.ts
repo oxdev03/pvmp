@@ -15,12 +15,11 @@ declare global {
 /**
  * The production transport.
  *
- * `acquireVsCodeApi` throws on a second call, so this must run once per
- * document; the provider's client singleton guarantees that.
+ * `acquireVsCodeApi` throws on a second call. The provider's client
+ * singleton calls this once per document.
  *
- * The Playwright harness replaces `window.acquireVsCodeApi` rather than this
- * function, so tests drive the exact same code path, structured clone
- * included (SPEC.md §13.1).
+ * The Playwright harness fakes `window.acquireVsCodeApi`, so tests run this
+ * code too (SPEC.md §13.1).
  */
 export function createVsCodeTransport(): Transport {
   const acquire = globalThis.window?.acquireVsCodeApi;
@@ -29,8 +28,7 @@ export function createVsCodeTransport(): Transport {
   }
   const api = acquire();
   return {
-    // Not window.postMessage: the VS Code webview API takes a single argument
-    // and has no targetOrigin parameter.
+    // The VS Code API's postMessage, which has no target origin.
     // oxlint-disable-next-line unicorn/require-post-message-target-origin
     post: (message) => api.postMessage(message),
     subscribe(handler) {

@@ -117,7 +117,7 @@ test.describe('source failures', () => {
 
     const banner = page.getByTestId('source-error-corp-artifactory');
     await expect(banner).toContainText('Could not reach');
-    // No sign-in offered: this is not something a click fixes.
+    // Sign-in would not fix an unreachable registry.
     await expect(banner.getByRole('button', { name: 'Sign in' })).toHaveCount(0);
     await expect(page.getByTestId('row-acme.lint')).toBeVisible();
   });
@@ -137,9 +137,8 @@ test.describe('icons', () => {
   });
 
   test('does not request icons for rows that were never scrolled into view', async ({ page }) => {
-    // 40 entries at 72px is far taller than the viewport, so most rows start
-    // off screen. This is the assertion that lazy icon loading actually works;
-    // without it every row would drag down a tarball (SPEC.md §6.3).
+    // 40 rows of 72px overflow the viewport, so most start off screen and
+    // must not request their icons yet (SPEC.md §6.3).
     await page.goto(sidebar('&fixture=many'));
     await expect(page.getByTestId('icon-acme.pkg00').locator('img')).toBeVisible();
 

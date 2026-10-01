@@ -6,10 +6,7 @@ export interface ActionButtonProps extends ButtonHTMLAttributes<HTMLButtonElemen
   variant?: Variant;
 }
 
-/**
- * Matches VS Code's extension action button, which uses the
- * `extensionButton.prominent*` colours rather than the generic button ones.
- */
+/** VS Code's extension action button, coloured with `extensionButton.*` tokens. */
 export function ActionButton({
   variant = 'prominent',
   className = '',

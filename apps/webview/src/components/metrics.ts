@@ -1,5 +1,5 @@
 /**
- * Metrics ported from VS Code's own extension list, not eyeballed.
+ * Metrics from VS Code's own extension list.
  *
  * Sources (MIT, microsoft/vscode @ main):
  *   src/vs/workbench/contrib/extensions/browser/extensionsList.ts
@@ -19,8 +19,7 @@
  *     narrow .extension-icon .icon      24x24
  *     .icon-container                   padding-top: 10px
  *
- * Re-check these when bumping the supported VS Code range; they are the whole
- * basis of the 1:1 claim in SPEC.md §7.3.
+ * Re-check them when raising the supported VS Code version (SPEC.md §7.3).
  */
 export const METRICS = {
   rowHeight: 72,

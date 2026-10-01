@@ -4,11 +4,9 @@ const details = (ext = 'acme.lint', query = '') => `/?view=details&ext=${ext}${q
 
 test.describe('details page targeting', () => {
   /*
-   * The host passes its target as a data-* attribute on #root. It once used a
-   * camelCase name, which the HTML parser lowercases into something `dataset`
-   * cannot read, so every details panel in the real extension opened empty.
-   * The harness used to bypass this by passing the id straight in; it now
-   * goes through the same attribute, so these cover the real path.
+   * The host passes the target as a data-* attribute on #root, and the
+   * harness sets it the same way. A camelCase attribute name once left every
+   * details panel empty, because the HTML parser lowercases it.
    */
   test('reads its target from the root attribute the host writes', async ({ page }) => {
     await page.goto(details());

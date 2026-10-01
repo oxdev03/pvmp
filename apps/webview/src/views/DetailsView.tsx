@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { ActionButton } from '../components/ActionButton.tsx';
 import { ExtensionIcon } from '../components/ExtensionIcon.tsx';
+import { PHASE_LABEL } from '../components/ExtensionRow.tsx';
 import { Markdown } from '../components/Markdown.tsx';
 import { useHost } from '../ipc/provider.tsx';
 import {
@@ -32,8 +33,7 @@ export function DetailsView({ extensionId }: DetailsViewProps) {
   const uninstall = useUninstall();
   useCatalogSync();
 
-  // With no target the query is disabled, so it would otherwise sit on
-  // "Loading…" forever. This is the case the host used to hit silently.
+  // With no target the query never runs, and "Loading…" would stay forever.
   if (!extensionId) {
     return (
       <p
@@ -64,7 +64,7 @@ export function DetailsView({ extensionId }: DetailsViewProps) {
       <Hero
         entry={entry}
         selectedVersion={data.selectedVersion}
-        busy={isBusy(progress)}
+        busyLabel={isBusy(progress) ? PHASE_LABEL[progress.phase] : undefined}
         onSelectVersion={setSelected}
         onInstall={(v) => install.mutate({ extensionId, version: v })}
         onUninstall={() => uninstall.mutate(extensionId)}
@@ -116,7 +116,8 @@ export function DetailsView({ extensionId }: DetailsViewProps) {
 interface HeroProps {
   entry: CatalogEntry;
   selectedVersion: string;
-  busy: boolean;
+  /** The running install phase, if any. */
+  busyLabel: string | undefined;
   onSelectVersion: (version: string) => void;
   onInstall: (version: string) => void;
   onUninstall: () => void;
@@ -125,7 +126,7 @@ interface HeroProps {
 function Hero({
   entry,
   selectedVersion,
-  busy,
+  busyLabel,
   onSelectVersion,
   onInstall,
   onUninstall,
@@ -169,12 +170,12 @@ function Hero({
         <p className="m-0 text-[14px] leading-[20px]">{entry.description}</p>
 
         <div className="mt-[6px] flex items-center gap-[8px]">
-          {busy ? (
+          {busyLabel ? (
             <span
               data-testid="details-progress"
               className="text-vscode-descriptionForeground text-[12px]"
             >
-              Working…
+              {busyLabel}…
             </span>
           ) : (
             <>

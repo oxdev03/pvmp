@@ -41,7 +41,7 @@ function serve(webview: vscode.Webview, deps: HostApiDeps, hub: WebviewHub): vsc
   return hub.add(host);
 }
 
-/** The activity-bar list. Replaces v1's TreeView entirely (SPEC.md §7.1). */
+/** The activity-bar list (SPEC.md §7.1). */
 export class MarketplaceViewProvider implements vscode.WebviewViewProvider {
   #view: vscode.WebviewView | undefined;
   #badge = 0;
@@ -53,10 +53,8 @@ export class MarketplaceViewProvider implements vscode.WebviewViewProvider {
   ) {}
 
   /**
-   * The activity-bar badge counting available updates.
-   *
-   * Remembered, because the first refresh usually finishes before VS Code
-   * resolves the view, and a badge set on no view was simply lost.
+   * The activity-bar badge counting available updates. Kept until the view
+   * resolves, which usually happens after the first refresh.
    */
   setBadge(count: number): void {
     this.#badge = count;
@@ -86,8 +84,8 @@ export class MarketplaceViewProvider implements vscode.WebviewViewProvider {
 /**
  * The details editor tab.
  *
- * One panel, reused: opening a second extension retargets the existing panel,
- * which is how VS Code's own extension editor behaves.
+ * Opening another extension reuses the open panel, as VS Code's own
+ * extension editor does.
  */
 export class DetailsPanel {
   private static current: DetailsPanel | undefined;
@@ -160,12 +158,12 @@ export class DetailsPanel {
     try {
       const { entries } = await this.deps.catalog.snapshot();
       const entry = entries.find((candidate) => candidate.extensionId === extensionId);
-      // Retargeted while the catalog loaded: that render owns the title now.
+      // Skip if the panel moved to another extension meanwhile.
       if (entry && this.extensionId === extensionId) {
         this.panel.title = `Extension: ${entry.displayName}`;
       }
     } catch {
-      // The id is already the title; a failed catalog is reported elsewhere.
+      // Keep the id as the title. The catalog reports its own failures.
     }
   }
 }

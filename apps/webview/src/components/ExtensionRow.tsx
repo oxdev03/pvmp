@@ -1,7 +1,6 @@
 /*
- * role="option" inside the section's role="listbox" is the correct pattern for
- * a custom list. prefer-tag-over-role wants a literal <option>, which is only
- * valid inside <select>.
+ * role="option" inside the section's role="listbox". The lint rule wants an
+ * <option> element, which is only valid inside <select>.
  */
 /* oxlint-disable jsx-a11y/prefer-tag-over-role */
 import type { CatalogEntry, InstallProgress } from '@pvmp/contract';
@@ -21,8 +20,7 @@ export interface ExtensionRowProps {
   onUninstall: (entry: CatalogEntry) => void;
 }
 
-const PHASE_LABEL: Record<InstallProgress['phase'], string> = {
-  queued: 'Queued',
+export const PHASE_LABEL: Record<InstallProgress['phase'], string> = {
   downloading: 'Downloading',
   extracting: 'Extracting',
   installing: 'Installing',
@@ -122,9 +120,8 @@ export function ExtensionRow({
 }
 
 /**
- * Buttons sit inside the row, which opens the details panel on click, so they
- * stop propagation themselves. Doing it on a wrapper div would put a click
- * handler on a non-interactive element.
+ * The row opens the details panel on click, so its buttons stop propagation.
+ * A wrapper would need a click handler on a non-interactive element.
  */
 const act = (run: () => void) => (event: MouseEvent) => {
   event.stopPropagation();
@@ -146,7 +143,7 @@ function RowAction({
       </ActionButton>
     );
   }
-  // Installed and current. VS Code hides management behind hover here too.
+  // Installed and current. VS Code shows this button on hover only.
   return (
     <ActionButton
       variant="secondary"

@@ -2,9 +2,8 @@
 @import './vscode-theme.css';
 
 /*
- * VS Code sets font family and size on the webview body from the user's
- * settings. Inheriting them is what makes a webview feel native, so the
- * preflight reset must not override them.
+ * VS Code sets the body font from the user's settings. Keep it; the preflight
+ * reset would replace it.
  */
 @layer base {
   html,
@@ -19,7 +18,7 @@
     background-color: transparent;
   }
 
-  /* VS Code renders its own scrollbars in webviews; match them. */
+  /* Match VS Code's own scrollbars. */
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
@@ -41,15 +40,12 @@
 }
 
 /*
- * Markdown bodies. VS Code's extension editor renders README content with
- * these proportions; Tailwind's preflight strips them, so they come back here
- * rather than as utilities on elements we do not author.
+ * README and CHANGELOG bodies, in the proportions of VS Code's extension
+ * editor. Tailwind's preflight strips them, and the elements come from
+ * markdown, so they are restored here.
  */
 @layer components {
-  /*
-   * Markdown headings render one level down (see Markdown.tsx), so the sizes
-   * are shifted to match: an h2 here is the README's `#`.
-   */
+  /* Headings render one level down (Markdown.tsx): an h2 is the README's `#`. */
   .pvmp-markdown h2 {
     font-size: 24px;
     font-weight: 600;

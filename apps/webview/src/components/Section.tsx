@@ -1,7 +1,4 @@
-/*
- * role="listbox" is correct for a custom list of extensions;
- * prefer-tag-over-role suggests <select>/<datalist>, which are form controls.
- */
+/* A custom list. The lint rule suggests <select>, which is a form control. */
 /* oxlint-disable jsx-a11y/prefer-tag-over-role */
 import type { ReactNode } from 'react';
 import { useId, useState } from 'react';
@@ -13,7 +10,7 @@ export interface SectionProps {
   children: ReactNode;
 }
 
-/** A collapsible group header, styled like VS Code's side bar section headers. */
+/** A collapsible group, styled like VS Code's side bar section headers. */
 export function Section({ title, count, defaultOpen = true, children }: SectionProps) {
   const [open, setOpen] = useState(defaultOpen);
   const regionId = useId();

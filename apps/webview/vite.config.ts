@@ -5,15 +5,13 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
-    // Emitted straight into the extension's bundle output so vsce packages it.
+    // Into the extension's dist, so vsce packages it.
     outDir: '../extension/dist/webview',
     emptyOutDir: true,
     target: 'es2022',
-    // One stylesheet for both views: the host writes a single <link> whose
-    // href it can build by name, with no manifest lookup.
+    // One stylesheet for both views, at a name the host can hard-code.
     cssCodeSplit: false,
-    // Predictable filenames: the host builds webview URIs by name, and a
-    // content hash would mean reading the manifest just to render a panel.
+    // No content hashes: the host builds asset URIs by name.
     rollupOptions: {
       input: {
         sidebar: 'src/entry-sidebar.tsx',

@@ -22,9 +22,9 @@ export const PNG_MAGIC = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
 /**
  * Deterministic pseudo-random bytes.
  *
- * A real vsix is a zip and therefore incompressible. Filling fixtures with a
- * constant byte would gzip away to nothing and make any assertion about bytes
- * transferred meaningless.
+ * A real vsix is a zip and does not compress. A constant-filled fixture would
+ * gzip to almost nothing, and tests that count transferred bytes would pass
+ * for the wrong reason.
  */
 export function incompressibleBytes(length: number, seed = 0x2545_f491): Uint8Array {
   const bytes = new Uint8Array(length);

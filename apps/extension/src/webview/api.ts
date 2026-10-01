@@ -31,14 +31,10 @@ export interface HostApiDeps {
 }
 
 /**
- * The HostApi implementation, one per webview.
+ * The HostApi implementation. Each webview gets its own, because
+ * `webview.asWebviewUri` mints icon URIs for that webview's origin.
  *
- * Per-webview because icon URIs are minted with `webview.asWebviewUri`, which
- * is specific to that webview's origin.
- *
- * A plain object literal, not a class instance: serveIpc dispatches against
- * the object's own function properties, so inherited members stay unreachable
- * from the webview.
+ * An object literal, because serveIpc exposes only own properties.
  */
 export function createHostApi(deps: HostApiDeps, webview: vscode.Webview): HostApi {
   return {
@@ -48,9 +44,8 @@ export function createHostApi(deps: HostApiDeps, webview: vscode.Webview): HostA
       deps.catalog.details(extensionId, version),
 
     async getIcon(extensionId: string, version: string): Promise<string | undefined> {
-      // Served as a file the webview loads by URI, rather than sent over the
-      // bridge as base64 the way v1 inlined icons (SPEC.md §6). Kept in the
-      // BlobCache so it is size-capped and evicted like every other blob.
+      // The webview loads icons by URI (SPEC.md §6). The copy lives in the
+      // BlobCache, so the size cap and eviction apply to it.
       const key = `webview:${extensionId}@${version}`;
       if (!(await deps.cache.get('icon', key))) {
         const bytes = await deps.catalog.icon(extensionId, version);
@@ -111,9 +106,8 @@ export function createHostApi(deps: HostApiDeps, webview: vscode.Webview): HostA
 export function createWebviewTransport(webview: vscode.Webview): Transport {
   return {
     post: (message) => {
-      // Returns false when the webview is hidden; the view refetches on
-      // becoming visible, so a dropped message is not worth queueing for.
-      // Not window.postMessage: Webview.postMessage takes a single argument.
+      // Drops the message when the webview is hidden. It refetches when shown.
+      // Webview.postMessage, not window.postMessage: it has no target origin.
       // oxlint-disable-next-line unicorn/require-post-message-target-origin
       void webview.postMessage(message);
     },

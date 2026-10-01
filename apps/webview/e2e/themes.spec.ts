@@ -5,16 +5,13 @@ const THEMES = ['dark', 'light', 'hc'] as const;
 /**
  * Visual goldens across every theme VS Code ships.
  *
- * Theme variables are the one thing that breaks silently: a token that does
- * not exist renders as transparent rather than throwing, so only a picture
- * catches it (SPEC.md §7.3).
+ * A misspelled theme token renders transparent instead of failing, so only a
+ * picture catches it (SPEC.md §7.3).
  */
 test.describe('appearance', () => {
-  // Goldens are rendered in the Playwright container (see
-  // scripts/update-visual-goldens.sh) because macOS and Linux rasterise fonts
-  // differently by far more than any useful pixel threshold. Comparing them
-  // on a developer machine only produces noise, so the pixel assertions run
-  // on Linux - which is CI, and the container.
+  // Goldens come from the Playwright container (scripts/update-visual-goldens.sh).
+  // macOS rasterises fonts too differently to compare, so pixel checks run on
+  // Linux only: CI and the container.
   const pixelPerfect = process.platform === 'linux';
 
   for (const theme of THEMES) {
@@ -47,8 +44,8 @@ test.describe('appearance', () => {
     await page.goto('/?view=sidebar&theme=dark');
     await expect(page.getByTestId('row-acme.lint')).toBeVisible();
 
-    // A missing --vscode-* variable makes text and backgrounds transparent
-    // rather than erroring, so assert the computed colours are real.
+    // A missing --vscode-* variable computes to transparent, so check that
+    // every colour resolved.
     const computed = await page.evaluate(() => {
       const row = document.querySelector('[data-testid="row-acme.lint"]');
       if (!row) return null;

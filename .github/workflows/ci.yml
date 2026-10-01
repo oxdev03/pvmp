@@ -36,8 +36,8 @@ jobs:
   webview:
     name: webview e2e and visual
     runs-on: ubuntu-latest
-    # The goldens in e2e/__screenshots__ are rendered in this exact image, so
-    # the pixel assertions only hold here (SPEC.md §7.3).
+    # The goldens were rendered in this image, so pixel checks hold only here
+    # (SPEC.md §7.3).
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
     steps:
@@ -71,7 +71,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Builds first: the bundle smoke test loads dist/extension.cjs.
+      # The bundle smoke test loads dist/extension.cjs.
       - run: pnpm build
       - run: pnpm test:integration
 

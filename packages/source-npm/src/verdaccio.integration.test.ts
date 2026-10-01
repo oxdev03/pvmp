@@ -14,10 +14,7 @@ const PORT = 4873;
 const USER = 'pvmp';
 const PASSWORD = 'pvmp-password';
 
-/**
- * Probed through testcontainers' own client rather than shelling out to
- * `docker`, so podman and a remote DOCKER_HOST count as available too.
- */
+/** Asks testcontainers, so Podman and a remote DOCKER_HOST count as available. */
 async function containerRuntimeAvailable(): Promise<boolean> {
   try {
     await getContainerRuntimeClient();
@@ -49,10 +46,7 @@ async function createUser(registry: string): Promise<string> {
   return body.token;
 }
 
-/**
- * Publishes via the npm HTTP protocol rather than shelling out to the npm CLI,
- * so the test depends on the registry rather than on a second package manager.
- */
+/** Publishes over the npm HTTP protocol, so the test needs no npm CLI. */
 async function publish(
   registry: string,
   token: string,
@@ -95,11 +89,9 @@ async function publish(
 }
 
 /**
- * The one source test that talks to a real registry (SPEC.md §4.2).
- *
- * It exercises the whole npm path end to end — catalog listing, packument,
- * tarball fetch, vsix extraction — and so also validates the shared client
- * that the fixture-verified JFrog and Nexus adapters ride on.
+ * The only test against a real registry (SPEC.md §4.2). It covers listing,
+ * packuments, tarball fetches and vsix extraction, which also exercises the
+ * HTTP client the JFrog and Nexus adapters share.
  */
 describe.skipIf(!hasRuntime)(
   'verdaccio integration',
@@ -111,8 +103,6 @@ describe.skipIf(!hasRuntime)(
     beforeAll(async () => {
       container = await new GenericContainer(IMAGE)
         .withExposedPorts(PORT)
-        // Replaces a hand-rolled poll loop, and reports a useful reason
-        // rather than a bare timeout when the registry never comes up.
         .withWaitStrategy(Wait.forHttp('/-/ping', PORT).forStatusCode(200))
         .start();
 
@@ -140,12 +130,8 @@ describe.skipIf(!hasRuntime)(
       }
     }, 180_000);
 
-    // Explicit teardown for the ordinary path. The real guarantee is Ryuk,
-    // the reaper testcontainers starts alongside: it holds a connection to
-    // this process and removes the container when that connection drops, so
-    // a Ctrl-C or a crash mid-run cannot leave Verdaccio running forever.
-    // `docker run --rm --detach` could, because --rm only fires when a
-    // container stops and Verdaccio never stops on its own.
+    // If this never runs (Ctrl-C, a crash), Ryuk, the testcontainers reaper,
+    // removes the container when this process's connection to it drops.
     afterAll(async () => {
       await container?.stop();
     });
@@ -197,7 +183,7 @@ describe.skipIf(!hasRuntime)(
       const npm = source();
       const [version] = await npm.list();
       const vsix = await npm.fetchVsix(version!);
-      // PK\x03\x04 — a real vsix is a zip.
+      // PK\x03\x04: a vsix is a zip.
       expect(Array.from(vsix.slice(0, 4))).toEqual([0x50, 0x4b, 0x03, 0x04]);
     });
 
@@ -219,8 +205,7 @@ describe.skipIf(!hasRuntime)(
         },
         makeDeps(undefined),
       );
-      // Verdaccio 6 allows anonymous reads by default, so this must still work.
-      // The assertion is that it does not throw an unexpected error shape.
+      // Verdaccio 6 allows anonymous reads, so a missing token must not throw.
       await expect(anonymous.list()).resolves.toBeInstanceOf(Array);
     });
   },

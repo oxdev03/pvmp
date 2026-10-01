@@ -28,7 +28,7 @@ export interface ManifestContext {
 
 const EXTENSION_ID = /^[a-z0-9][a-z0-9-]*\.[a-z0-9][a-z0-9-]*$/i;
 
-/** The value when it is a non-empty string; settings and registries both send junk. */
+/** The value if it is a non-empty string, otherwise undefined. */
 export function nonEmptyString(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
@@ -54,9 +54,8 @@ function urlish(value: unknown): string | undefined {
 /**
  * Validates and converts a published package.json into an ExtensionVersion.
  *
- * This is a trust boundary: the input came from a registry, so every field is
- * checked rather than asserted. Throws ManifestError when the package does not
- * conform to the pvmp format.
+ * The input comes from a registry, so every field is checked. Throws
+ * ManifestError when the package does not follow the pvmp format.
  */
 export function toExtensionVersion(raw: PvmpPackageJson, ctx: ManifestContext): ExtensionVersion {
   const packageName = nonEmptyString(raw.name);

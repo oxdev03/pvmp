@@ -9,9 +9,8 @@ export interface HttpContext {
 }
 
 /**
- * `| undefined` on each field is deliberate: under exactOptionalPropertyTypes
- * it is what lets callers write `{ signal: call?.signal }` instead of
- * spreading a conditional object at every call site.
+ * Each field allows `undefined` so that, under exactOptionalPropertyTypes,
+ * callers can write `{ etag: cached?.etag }` without a conditional spread.
  */
 export interface HttpOptions {
   accept?: string | undefined;
@@ -27,11 +26,9 @@ export interface HttpResult<T> {
 }
 
 /**
- * Strips any userinfo before a URL reaches a log line or an error message.
- *
- * A registry configured as https://user:pass@host/ would otherwise put those
- * credentials into the output channel and into the error banner the webview
- * renders.
+ * Strips userinfo from a URL before it goes into a log line or an error.
+ * Errors show up in the webview's banner, so a registry configured as
+ * https://user:pass@host/ would otherwise display its password.
  */
 export function redactUrl(url: string): string {
   try {
@@ -41,7 +38,6 @@ export function redactUrl(url: string): string {
     parsed.password = '';
     return parsed.toString();
   } catch {
-    // Not parseable, so there is no userinfo to strip either.
     return url;
   }
 }
@@ -63,8 +59,8 @@ async function send(url: string, ctx: HttpContext, options: HttpOptions): Promis
       ...(options.signal ? { signal: options.signal } : {}),
     });
   } catch (error) {
-    // fetch only rejects for transport-level problems: DNS, TLS, refused,
-    // aborted. Anything with a status code comes back as a Response.
+    // fetch rejects only for transport failures (DNS, TLS, refused, aborted).
+    // Any HTTP status resolves as a Response.
     throw new SourceFailure(
       ctx.sourceId,
       'unreachable',
@@ -120,8 +116,8 @@ export async function getBytes(
 /**
  * Opens a byte stream, for readers that abort once they have what they need.
  *
- * The AbortController must be the one wired into `options.signal`, so that
- * aborting really cancels the transfer rather than just stopping the reader.
+ * Pass the reader's AbortController as `options.signal`, or aborting stops
+ * the reader while the transfer carries on.
  */
 export async function getStream(
   url: string,

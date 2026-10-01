@@ -20,7 +20,7 @@ export interface SourceDeps {
   files: FileStore;
   /** Bearer token for this source, from SecretStorage. */
   getToken(sourceId: string): Promise<string | undefined>;
-  /** Expands ${userHome} and ${workspaceFolder} in configured paths. */
+  /** Expands ${userHome}, ${workspaceFolder} and ${env:NAME} in configured paths. */
   resolvePath(input: string): string;
   /**
    * Watches a directory subtree, calling back on any change. Returns a
@@ -38,8 +38,8 @@ export interface ExtensionDetailContent {
 /**
  * One configured place extensions come from.
  *
- * Implementations live in their own packages so this boundary is enforced by
- * the module graph rather than by convention (SPEC.md §3.2).
+ * Each implementation lives in its own package, so the module graph enforces
+ * this boundary (SPEC.md §3.2).
  */
 export interface SourceProvider {
   readonly id: string;
@@ -53,13 +53,7 @@ export interface SourceProvider {
   dispose?(): void;
 }
 
-/**
- * Turns a parsed tarball into detail content and caches its icon.
- *
- * Both sources read the identical package format; only how the bytes arrive
- * differs. Keeping this in one place means "what detail content is" has a
- * single definition.
- */
+/** Turns a parsed tarball into detail content, caching its icon on the way. */
 export async function extractContent(
   tarball: PvmpTarball,
   cache: BlobCache,
@@ -86,10 +80,7 @@ export interface SourceFactory {
   create(config: RawSourceConfig, deps: SourceDeps): SourceProvider;
 }
 
-/**
- * Maps `type` in settings to a factory. Registration is explicit at
- * activation; there is no third-party plugin API.
- */
+/** Maps `type` in settings to a factory. Only activation registers factories. */
 export class SourceFactoryRegistry {
   readonly #factories = new Map<string, SourceFactory>();
 
@@ -110,8 +101,8 @@ export class SourceFactoryRegistry {
 /**
  * Derives a stable source id when the config omits one.
  *
- * Ids key SecretStorage entries and appear in settings ordering, so they must
- * not shift when unrelated sources are added or reordered.
+ * Ids key SecretStorage entries, so a configured `id` is the only one that
+ * survives reordering. The fallback uses the position in the list.
  */
 export function defaultSourceId(config: RawSourceConfig, index: number): string {
   if (typeof config.id === 'string' && config.id.length > 0) return config.id;

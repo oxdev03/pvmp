@@ -19,7 +19,7 @@ import {
 export const LOCAL_SOURCE_TYPE = 'local';
 
 const DEFAULT_DEPTH = 3;
-/** Never worth descending into, and pathological on a big tree. */
+/** Never contain packages, and can be huge. */
 const SKIP_DIRECTORIES = new Set(['node_modules', '.git', '.svn', '.hg', '.cache']);
 
 interface CachedEntry {
@@ -28,9 +28,8 @@ interface CachedEntry {
 }
 
 /**
- * A directory of `.tgz` packages in the pvmp format.
- *
- * Same reader as the npm source; only the transport differs (SPEC.md §4.1).
+ * A directory of `.tgz` packages in the pvmp format (SPEC.md §4.1). It shares
+ * the tarball reader with the npm source.
  */
 export class LocalSource implements SourceProvider {
   #dispose: (() => void) | undefined;
@@ -71,9 +70,9 @@ export class LocalSource implements SourceProvider {
     const cached = await this.deps.cache.get('icon', key);
     if (cached) return cached;
 
-    // Not reached through #read: meta and icon blobs are evicted
-    // independently, so a surviving meta entry would short-circuit #read and
-    // leave an evicted icon gone for good. Re-extract instead.
+    // Not through #read: the cache evicts meta and icon blobs separately, and
+    // a cached meta entry makes #read skip the tarball, so an evicted icon
+    // would never come back.
     const bytes = await this.deps.files.read(version.locator);
     if (!bytes) return undefined;
     const { icon } = readPvmpTarball(bytes, version.locator);
@@ -90,12 +89,11 @@ export class LocalSource implements SourceProvider {
   }
 
   /**
-   * Cache key: identity of the file on disk, so an edit invalidates it.
+   * Cache key from the file's identity, so editing the file changes the key.
    *
-   * ponytail: path+mtime+size, the same heuristic rsync and bundlers use.
-   * It misses a replacement made within the same millisecond that is also
-   * byte-identical in length. Hash the contents instead if that ever matters,
-   * at the cost of reading every package on every scan.
+   * ponytail: path+mtime+size, as rsync does. Misses a same-size replacement
+   * within one millisecond. Hashing the contents fixes that but reads every
+   * package on every scan.
    */
   async #key(path: string): Promise<string> {
     const stat = await this.deps.files.stat(path);
@@ -135,8 +133,8 @@ async function collectTarballs(files: FileStore, root: string, depth: number): P
   let frontier = [root];
 
   for (let level = 0; level < depth && frontier.length > 0; level++) {
-    // Each BFS level must resolve before the next is known; within a level the
-    // listings already run in parallel.
+    // A level must finish before the next is known. Within a level the
+    // listings run in parallel.
     // oxlint-disable-next-line no-await-in-loop
     const listings = await Promise.all(frontier.map((dir) => files.list(dir)));
     const next: string[] = [];

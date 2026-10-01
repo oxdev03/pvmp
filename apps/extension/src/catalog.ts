@@ -55,10 +55,8 @@ function installedExtensions(): InstalledExtension[] {
 }
 
 /**
- * Builds the catalog by asking every configured source and merging the result.
- *
- * A source that fails contributes no entries and one SourceError; it never
- * takes the rest of the catalog down with it.
+ * Lists every configured source and merges the results. A failing source
+ * contributes one SourceError and no entries; the other sources still list.
  */
 export class CatalogService {
   #sources: SourceProvider[] = [];
@@ -110,9 +108,8 @@ export class CatalogService {
   /**
    * Drops the cached catalog and abandons any load already in flight.
    *
-   * A load started before a reload was built from the previous provider list,
-   * which reloadSources() has since disposed. Joining it would show extensions
-   * from a source the user just removed, and errors from disposed ones.
+   * A load in flight still uses the providers that reloadSources() just
+   * disposed. Joining it would list extensions from a source you removed.
    */
   invalidate(): void {
     this.#versions = undefined;
@@ -121,11 +118,9 @@ export class CatalogService {
   }
 
   /**
-   * Lists every source once, sharing one in-flight request.
-   *
-   * Without the shared promise, concurrent callers each re-list every source:
-   * two webviews mounting together, or a burst of getIcon calls that each
-   * resolve through locate(), would multiply the network work.
+   * Lists every source, sharing one load between concurrent callers. Two
+   * webviews mounting together, or a burst of getIcon calls going through
+   * locate(), would otherwise each list every source.
    */
   async #load(): Promise<ExtensionVersion[]> {
     if (this.#versions) return this.#versions;
@@ -150,9 +145,9 @@ export class CatalogService {
       );
 
       const versions = results.flat();
-      // ponytail: invalidation discards the result, it does not cancel the
-      // listing. The caller that started it sees this stale answer once;
-      // everyone after the reload gets the reload's own load.
+      // ponytail: invalidate() discards this result but lets the listing run
+      // on. The caller that started it gets the stale answer once; later
+      // callers get the new load.
       if (generation === this.#generation) {
         this.#versions = versions;
         this.#runtimeErrors = errors;

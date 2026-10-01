@@ -8,9 +8,8 @@ export default defineConfig(({ mode }) => ({
     emptyOutDir: false,
     target: 'node20',
     ssr: true,
-    // Only for `pnpm watch` (--mode development). vsce's ignore rules do not
-    // reliably exclude a re-included path, so the map simply is not produced
-    // for a packaged build rather than being filtered out afterwards.
+    // Development only. vsce's ignore rules failed to keep the map out of the
+    // vsix, so production builds do not emit one.
     sourcemap: mode !== 'production',
     minify: false,
     lib: {

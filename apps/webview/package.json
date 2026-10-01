@@ -15,7 +15,6 @@
   "dependencies": {
     "@pvmp/contract": "workspace:*",
     "@tanstack/react-query": "5.103.1",
-    "@vscode-elements/react-elements": "2.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-markdown": "10.1.0",

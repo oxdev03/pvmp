@@ -43,9 +43,8 @@ interface CachedPackument {
 /**
  * Extensions published as npm packages, from any registry.
  *
- * Everything here is plain npm protocol and therefore identical across JFrog,
- * Nexus and Verdaccio. Only catalog listing differs, and that is the adapter's
- * whole job (SPEC.md §3.2).
+ * Uses only the npm protocol, which JFrog, Nexus and Verdaccio all serve the
+ * same way. Listing the catalog is the adapter's job (SPEC.md §3.2).
  */
 export class NpmSource implements SourceProvider {
   constructor(
@@ -87,7 +86,7 @@ export class NpmSource implements SourceProvider {
 
     this.deps.log.debug(`[${this.id}] ${this.config.adapter.id} listed ${names.length} package(s)`);
 
-    // Packuments are independent; one bad package must not sink the catalog.
+    // One bad packument skips that package, not the whole catalog.
     const settled = await Promise.all(
       names.map(async (name) => {
         try {
@@ -128,7 +127,7 @@ export class NpmSource implements SourceProvider {
     return versions;
   }
 
-  /** ETag-revalidated: unchanged packuments cost a 304, not a re-parse. */
+  /** Revalidated by ETag, so an unchanged packument costs a 304. */
   async #packument(name: string, http: HttpContext): Promise<Packument> {
     const key = `packument:${this.id}:${name}`;
     const cached = await this.deps.cache.getJson<CachedPackument>(key);
@@ -166,8 +165,8 @@ export class NpmSource implements SourceProvider {
     const cached = await this.deps.cache.get('icon', key);
     if (cached) return cached;
 
-    // Stream and abort as soon as icon.png is complete. A tarball laid out per
-    // SPEC.md §2.1 costs a few KB; one that is not degrades to a full download.
+    // Streams the tarball and aborts once icon.png is complete: a few KB for a
+    // package in SPEC.md §2.1 order, the full download for any other.
     const abort = new AbortController();
     const http = await this.#http();
 
@@ -176,7 +175,7 @@ export class NpmSource implements SourceProvider {
       const stream = await getStream(version.locator, http, { signal: abort.signal });
       icon = await readIconFromStream(stream, abort);
     } catch (error) {
-      // An abort we caused is success, not failure.
+      // Our own abort means we got the icon.
       if (!abort.signal.aborted) {
         this.deps.log.debug(`[${this.id}] no icon for ${version.extensionId}: ${String(error)}`);
         return undefined;

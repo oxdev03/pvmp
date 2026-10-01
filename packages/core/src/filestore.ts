@@ -1,9 +1,9 @@
 /**
  * The only filesystem surface core depends on.
  *
- * The extension host backs this with `vscode.workspace.fs`, which works
- * unchanged over SSH, devcontainers and code-server. Tests back it with an
- * in-memory map, which is why core needs no VS Code harness to exercise.
+ * The extension host implements it with `vscode.workspace.fs`, which works
+ * over SSH, in devcontainers and in code-server. Tests use the in-memory one
+ * below, so core tests need no VS Code.
  */
 export interface FileStore {
   read(path: string): Promise<Uint8Array | undefined>;
@@ -29,9 +29,9 @@ export interface FileStat {
 /**
  * In-memory FileStore for tests.
  *
- * mtime advances by at least 1ms per write. A real filesystem does this; using
- * a bare Date.now() here would stamp writes in the same tick identically and
- * make mtime-keyed cache invalidation look broken when it is not.
+ * mtime advances at least 1ms per write. With a bare Date.now(), two writes
+ * in one tick would share an mtime and the local source's mtime-based cache
+ * keys would collide.
  */
 export function createMemoryFileStore(): FileStore {
   const files = new Map<string, { data: Uint8Array; mtime: number }>();

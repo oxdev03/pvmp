@@ -12,11 +12,10 @@ interface ComponentsResponse {
 /**
  * Sonatype Nexus, via the components REST API.
  *
- * `GET /service/rest/v1/components?repository=<repo>` is cursor-paginated
- * through `continuationToken`. For npm components Nexus splits a scoped name
- * into `group` (`@corp`) and `name` (`vsc-lint`).
+ * `GET /service/rest/v1/components?repository=<repo>`, paginated by
+ * `continuationToken`.
  *
- * Fixture-verified, not live-verified (SPEC.md §17).
+ * Tested against recorded responses only (SPEC.md §17).
  */
 export const nexusAdapter: CatalogAdapter = {
   id: 'nexus',
@@ -26,7 +25,7 @@ export const nexusAdapter: CatalogAdapter = {
 
     const names = new Set<string>();
     let token: string | undefined;
-    // Bounded so a registry that keeps handing back a token cannot spin forever.
+    // Capped, in case a registry keeps returning a token.
     for (let page = 0; page < 200; page++) {
       const url = joinUrl(
         base,

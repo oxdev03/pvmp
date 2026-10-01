@@ -8,12 +8,9 @@ import {
 
 describe('root extension id attribute', () => {
   /*
-   * This pairing is the whole point of the constants.
-   *
-   * The HTML parser lowercases attribute names, and `dataset` only maps
-   * kebab-case back to camelCase. A camelCase attribute therefore round-trips
-   * to a key nobody reads, with no error anywhere — which is exactly how the
-   * details panel shipped broken once.
+   * The HTML parser lowercases attribute names, and `dataset` maps only
+   * kebab-case to camelCase. A camelCase attribute ends up under a key nobody
+   * reads, with no error. The details panel once shipped broken this way.
    */
   it('is lowercase kebab-case, which is what dataset can read back', () => {
     expect(ROOT_EXTENSION_ID_ATTRIBUTE).toBe(ROOT_EXTENSION_ID_ATTRIBUTE.toLowerCase());
@@ -43,7 +40,7 @@ describe('readExtensionId', () => {
   });
 
   it('does not read a lowercased camelCase attribute', () => {
-    // What `data-extensionId` actually becomes after parsing.
+    // What `data-extensionId` becomes after parsing.
     expect(readExtensionId({ dataset: { extensionid: 'acme.lint' } })).toBeUndefined();
   });
 });

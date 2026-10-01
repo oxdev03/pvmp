@@ -28,16 +28,12 @@ export const COMMANDS = {
   showLog: 'pvmp.showLog',
 } as const;
 
-/**
- * Held for deactivate(): the cache index must be written before the window
- * closes, or blobs added this session are invisible to the next one's prune
- * and never get evicted.
- */
+/** For deactivate(), which must flush the cache index before the window closes. */
 let activeCache: BlobCache | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
-  // A LogOutputChannel already is a Logger, with level filtering the user can
-  // raise from the Output panel without a reload (SPEC.md §7.4).
+  // A LogOutputChannel satisfies Logger, and you can change its level from
+  // the Output panel without reloading (SPEC.md §7.4).
   const channel = vscode.window.createOutputChannel('Private Marketplace', { log: true });
   const log: Logger = channel;
   context.subscriptions.push(channel);
@@ -172,8 +168,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
-  // Background check. Opt-in and interval-driven; it never installs unless
-  // pvmp.autoUpdate is on (SPEC.md §9).
+  // Background check. It installs only when pvmp.autoUpdate is on (SPEC.md §9).
   let timer: ReturnType<typeof setInterval> | undefined;
 
   const restartTimer = (): void => {
@@ -233,9 +228,8 @@ export async function deactivate(): Promise<void> {
   try {
     await activeCache?.flush();
   } catch {
-    // Nothing useful to do: the window is closing and there is nowhere left to
-    // report to. A lost index costs a re-download; a rejected deactivate() is
-    // an error notification the user can do nothing about.
+    // The window is closing and nothing can report this. A lost index costs
+    // re-downloads; a rejected deactivate() shows an error nobody can act on.
   }
   activeCache = undefined;
 }

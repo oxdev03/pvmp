@@ -81,9 +81,9 @@ export function readVsix(bytes: Uint8Array, locator: string): Uint8Array {
 /**
  * Pulls only the icon out of a tarball stream.
  *
- * pvmp's format requires metadata entries to precede `extension.vsix`
- * (SPEC.md §2.1), so for a conforming package this reads a few KB and then
- * aborts. A non-conforming package still works, it just transfers in full.
+ * The format puts metadata before `extension.vsix` (SPEC.md §2.1), so a
+ * conforming package costs a few KB before the abort. A package in any other
+ * order still works but downloads in full.
  */
 export async function readIconFromStream(
   stream: ReadableStream<Uint8Array>,

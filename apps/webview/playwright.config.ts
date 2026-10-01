@@ -12,16 +12,13 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     trace: 'on-first-retry',
   },
-  // Goldens are keyed by name only, not by platform: they are generated in the
-  // Playwright container by scripts/update-visual-goldens.sh, so there is one
-  // canonical set and a developer machine compares against the same images CI
-  // does. Running the visual suite outside the container will report diffs.
+  // One set of goldens for every platform, generated in the Playwright
+  // container by scripts/update-visual-goldens.sh. Outside the container the
+  // visual suite reports diffs.
   snapshotPathTemplate: '{testDir}/__screenshots__/{arg}{ext}',
   expect: {
     toHaveScreenshot: {
-      // Font rasterisation differs across platforms; goldens are generated in
-      // the same container CI runs (SPEC.md §7.3). A small threshold absorbs
-      // sub-pixel antialiasing without hiding real layout drift.
+      // Absorbs sub-pixel antialiasing; layout drift still fails (SPEC.md §7.3).
       maxDiffPixelRatio: 0.01,
     },
   },

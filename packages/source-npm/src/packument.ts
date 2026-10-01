@@ -13,9 +13,9 @@ export interface PackumentVersion extends PvmpPackageJson {
 /**
  * An npm packument.
  *
- * This is the reason extensions are npm packages: one request returns every
- * version's complete package.json plus publish times, so listing a catalog
- * needs no tarball downloads at all (SPEC.md §2).
+ * One request returns every version's package.json and publish time, so the
+ * catalog lists without downloading any tarball. This is why extensions ship
+ * as npm packages (SPEC.md §2).
  */
 export interface Packument {
   name?: string;
@@ -33,7 +33,7 @@ export interface PackumentEntry {
   publishedAt: string | undefined;
 }
 
-/** Pulls out the versions that are actually usable, ignoring malformed ones. */
+/** The versions that have a tarball URL; malformed entries are skipped. */
 export function packumentEntries(packument: Packument): PackumentEntry[] {
   const entries: PackumentEntry[] = [];
 
@@ -53,7 +53,7 @@ export function packumentEntries(packument: Packument): PackumentEntry[] {
   return entries;
 }
 
-/** Only packages carrying a `pvmp` block are ours; the rest of the registry is not. */
+/** True for packages with a `pvmp` block. Everything else in the registry is ignored. */
 export function isPvmpPackage(manifest: PackumentVersion): boolean {
   return isRecord(manifest.pvmp);
 }

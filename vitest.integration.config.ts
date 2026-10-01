@@ -1,9 +1,6 @@
 import { defineConfig } from 'vitest/config';
 
-/**
- * Integration tests: real containers, minutes not milliseconds.
- * Run with `pnpm test:integration`; CI runs them on their own job.
- */
+/** Tests against real containers. `pnpm test:integration`; CI runs them as a separate job. */
 export default defineConfig({
   test: {
     environment: 'node',
@@ -11,7 +8,7 @@ export default defineConfig({
     exclude: ['**/node_modules/**', '**/dist/**'],
     testTimeout: 180_000,
     hookTimeout: 180_000,
-    // Containers bind ports; running suites in parallel invites collisions.
+    // One file at a time, so containers never compete for ports.
     fileParallelism: false,
   },
 });

@@ -1,9 +1,8 @@
 /**
  * A minimal incremental tar reader.
  *
- * nanotar parses a complete buffer, which is the right tool once the whole
- * tarball is in hand. This exists for the other case: pulling one small entry
- * out of the front of a stream and aborting the download before the multi-MB
+ * nanotar needs the whole buffer. This reads entries off the front of a
+ * stream, so a caller can take the icon and abort before the multi-MB
  * `extension.vsix` arrives (SPEC.md §6.3).
  */
 
@@ -38,17 +37,10 @@ export function normalizeEntryName(name: string): string {
     .toLowerCase();
 }
 
-export interface TarScanResult {
-  entries: Map<string, Uint8Array>;
-  /** True once every wanted entry has been seen, or the archive ended. */
-  done: boolean;
-}
-
-export class TarScanner {
-  // ponytail: chunks are concatenated on each push, which is O(n^2) in the
-  // number of chunks. Fine because this path aborts after a few hundred KB;
-  // the whole-tarball path uses readTarball instead. Switch to a chunk list
-  // with a windowed reader if this ever runs to completion on large inputs.
+class TarScanner {
+  // ponytail: each push copies the whole buffer, O(n^2) in chunks. Fine while
+  // callers abort after a few hundred KB; full reads go through
+  // readPvmpTarball. Switch to a chunk list if this ever reads whole archives.
   #buffer = new Uint8Array(0);
   #entryName: string | undefined;
   #entrySize = 0;
@@ -85,7 +77,7 @@ export class TarScanner {
         if (this.#buffer.length < BLOCK) return;
         const header = this.#buffer.subarray(0, BLOCK);
 
-        // Two consecutive zero blocks end the archive; one is enough to stop.
+        // The archive ends with two zero blocks; the first one is enough.
         if (header.every((byte) => byte === 0)) {
           this.#finished = true;
           return;
@@ -97,7 +89,7 @@ export class TarScanner {
 
         this.#entryName = normalizeEntryName(prefix ? `${prefix}/${name}` : name);
         this.#entrySize = octal(header.subarray(...SIZE));
-        // '0' and NUL both mean a regular file; anything else we skip over.
+        // '0' and NUL mean a regular file. Skip every other type.
         this.#entryIsFile = type === '0' || type === '\0';
         this.#buffer = this.#buffer.subarray(BLOCK);
       }
@@ -121,14 +113,13 @@ export class TarScanner {
  * Reads `wanted` entries from a gzipped tar stream, stopping as soon as it has
  * them all.
  *
- * Deliberately not `pipeThrough(new DecompressionStream('gzip'))`: that starts
- * an independent pipe loop which reads far ahead of what the consumer pulls,
- * so the whole tarball transfers even when the caller stops after a few KB.
- * fflate's push-based Gunzip inflates exactly the chunks we hand it, which is
- * what makes the early abort real.
+ * Uses fflate's push-based Gunzip, which inflates only the chunks it is given.
+ * `pipeThrough(new DecompressionStream('gzip'))` runs its own pipe loop that
+ * reads ahead of the consumer, so the whole tarball transfers even when the
+ * reader stops after a few KB.
  *
- * The caller's AbortController should be wired to the underlying fetch so that
- * stopping early actually cancels the transfer.
+ * Wire the caller's AbortController into the fetch, or stopping early only
+ * stops the reader and the transfer continues.
  */
 export async function readTarGzipStream(
   stream: ReadableStream<Uint8Array>,
@@ -142,7 +133,7 @@ export async function readTarGzipStream(
   const reader = stream.getReader();
   try {
     for (;;) {
-      // oxlint-disable-next-line no-await-in-loop -- reading a stream is sequential by definition
+      // oxlint-disable-next-line no-await-in-loop -- stream reads are sequential
       const { done, value } = await reader.read();
       if (done) break;
       if (value?.length) inflate.push(value);

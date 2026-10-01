@@ -2,15 +2,14 @@
 /**
  * Regenerates src/styles/vscode-theme.css.
  *
- * Replaces @githubocto/tailwind-vscode, which did the same job as a Tailwind
- * v3 `plugin()` and was archived on 2026-08-06. The output here is a v4
- * `@theme inline` block instead, so there is no runtime dependency at all.
- *
  *   node scripts/generate-vscode-theme.mjs
  *
- * VS Code injects every theme colour into the webview as `--vscode-<id>` with
- * dots replaced by dashes. This maps each one to a Tailwind colour token, so
- * `bg-vscode-editor-background` and friends just work and follow the theme.
+ * VS Code injects each theme colour into webviews as `--vscode-<id>`, dots
+ * turned into dashes. This maps every one to a Tailwind v4 colour token, so
+ * `bg-vscode-editor-background` follows the active theme.
+ *
+ * Replaces @githubocto/tailwind-vscode, a Tailwind v3 plugin archived on
+ * 2026-08-06.
  */
 import { writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -64,8 +63,8 @@ const css = `/*
  * Source: ${REFERENCE}
  * ${sorted.length} theme colours.
  *
- * \`inline\` so utilities reference var(--vscode-*) directly: no intermediate
- * custom property is emitted, and unused colours cost nothing.
+ * \`inline\`, so utilities use var(--vscode-*) directly and unused colours
+ * emit nothing.
  */
 @theme inline {
 ${lines.join('\n')}

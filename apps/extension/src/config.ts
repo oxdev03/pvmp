@@ -24,10 +24,7 @@ export function readSettings(): PvmpSettings {
   };
 }
 
-/**
- * Appends picked folders to pvmp.sources. The write itself triggers the
- * refresh, through onDidChangeConfiguration.
- */
+/** Appends the picked folders to pvmp.sources, which triggers a refresh. */
 export async function addLocalSource(): Promise<void> {
   const picked = await vscode.window.showOpenDialog({
     canSelectFiles: false,
@@ -55,11 +52,10 @@ export async function addLocalSource(): Promise<void> {
 }
 
 /**
- * Expands the variables VS Code itself understands in a configured path.
+ * Expands ${workspaceFolder}, ${userHome} and ${env:NAME} in a configured path.
  *
- * Which machine these resolve against depends on where the extension host is
- * running. With extensionKind ["workspace","ui"] that is the container or
- * remote when one exists, so the resolved value is logged (SPEC.md §8).
+ * They resolve on the machine running the extension host, which in a remote
+ * window is the remote, so the result is logged (SPEC.md §8).
  */
 export function createPathResolver(log: { debug(message: string): void }) {
   return (input: string): string => {

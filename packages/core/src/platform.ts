@@ -9,8 +9,8 @@ export function isTargetPlatform(value: string): value is TargetPlatform {
  * Maps a Node `process.platform`/`process.arch` pair to VS Code's
  * `targetPlatform` vocabulary.
  *
- * `isAlpine` must be supplied by the caller: musl cannot be detected from
- * `process.platform`, which reports plain `linux` on Alpine.
+ * The caller supplies `isAlpine`, because `process.platform` reports plain
+ * `linux` on Alpine.
  */
 export function detectTargetPlatform(
   platform: string,

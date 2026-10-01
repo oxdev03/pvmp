@@ -11,14 +11,14 @@ interface StorageListing {
 /**
  * JFrog Artifactory, via the storage listing API.
  *
- * `GET /api/storage/<repo>?list&deep=1` walks the repository and returns every
- * file URI. For an npm repo those look like `/@corp/vsc-lint/-/vsc-lint-1.4.0.tgz`,
- * so the package name is the path above `/-/`.
+ * `GET /api/storage/<repo>?list&deep=1` returns every file URI in the repo.
+ * In an npm repo they look like `/@corp/vsc-lint/-/vsc-lint-1.4.0.tgz`, and
+ * the package name is the path before `/-/`.
  *
- * Chosen over AQL because the storage API needs only read permission on the
- * repository, while AQL often needs more in locked-down installs.
+ * The storage API needs only read permission on the repo. AQL, the
+ * alternative, often needs more on locked-down instances.
  *
- * Fixture-verified, not live-verified (SPEC.md §17).
+ * Tested against recorded responses only (SPEC.md §17).
  */
 export const jfrogAdapter: CatalogAdapter = {
   id: 'jfrog',

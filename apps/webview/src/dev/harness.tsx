@@ -33,9 +33,8 @@ installMockHost(fixture);
 const container = document.getElementById('root');
 if (!container) throw new Error('#root is missing');
 
-// Stamp and read back through exactly what the extension host does, rather
-// than passing the id straight in: reading it is the part that broke once.
-// `ext=` may be empty, to exercise the no-target case.
+// Set the attribute the way the host does, so tests cover reading it.
+// An empty `ext=` tests the no-target case.
 if (extensionId) container.setAttribute(ROOT_EXTENSION_ID_ATTRIBUTE, extensionId);
 
 createRoot(container).render(

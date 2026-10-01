@@ -9,20 +9,16 @@ import type {
 /**
  * Everything the webview may ask the extension host to do.
  *
- * This is the single source of truth for the wire: the client proxy and the
- * host dispatcher are both derived from it, so adding a method without
- * implementing it is a type error rather than a runtime 'unknown method'.
+ * The client proxy and the host dispatcher both derive from this type, so a
+ * method declared here but not implemented fails typechecking.
  *
- * A type alias rather than an interface on purpose. Only type aliases get an
- * implicit index signature, which is what lets this satisfy ApiShape.
+ * A type alias because only aliases get the implicit index signature that
+ * ApiShape requires; an interface would not satisfy it.
  */
 export type HostApi = {
   listCatalog(): Promise<CatalogSnapshot>;
   getDetails(extensionId: string, version?: string): Promise<ExtensionDetails>;
-  /**
-   * Resolves to a webview-safe URI for the extension icon, or undefined when
-   * the package ships none. Fetched lazily per visible row — see SPEC.md §6.3.
-   */
+  /** A webview URI for the icon, or undefined when the package has none (SPEC.md §6.3). */
   getIcon(extensionId: string, version: string): Promise<string | undefined>;
   install(extensionId: string, version: string): Promise<InstallResult>;
   uninstall(extensionId: string): Promise<InstallResult>;

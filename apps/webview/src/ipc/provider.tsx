@@ -13,12 +13,9 @@ const HostContext = createContext<Client | undefined>(undefined);
 let singleton: Client | undefined;
 
 /**
- * One client per webview document, for the life of the document.
- *
- * Not owned by the provider: StrictMode mounts twice in development, so an
- * unmount-time dispose would tear down the channel and leave the second mount
- * talking to a dead client. There is exactly one `acquireVsCodeApi` channel
- * anyway, and the webview's own teardown ends it.
+ * One client per webview document, never disposed. StrictMode mounts twice in
+ * development, and a dispose on unmount would leave the second mount with a
+ * dead client.
  */
 function getIpcClient(): Client {
   singleton ??= createIpcClient<HostApi, HostEvents>(createVsCodeTransport());
@@ -29,8 +26,7 @@ function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        // The host is local and pushes catalogChanged when data moves, so
-        // window-focus refetching would only add noise.
+        // The host pushes catalogChanged, so focus refetches add nothing.
         refetchOnWindowFocus: false,
         staleTime: 30_000,
         retry: 1,
@@ -41,7 +37,7 @@ function createQueryClient(): QueryClient {
 
 export interface HostProviderProps {
   children: ReactNode;
-  /** Injected by tests that bypass the bridge; production builds its own. */
+  /** For tests that bypass the bridge. */
   client?: Client;
   queryClient?: QueryClient;
 }

@@ -1,43 +1,37 @@
-# Publishing an extension to pvmp
+# Publishing an extension
 
-pvmp distributes extensions as **npm packages that carry a `.vsix`**. npm is
-only transport: the vsix stays the canonical artifact, and pvmp hands it to
-VS Code untouched.
+pvmp installs extensions from npm packages that contain the `.vsix`. Publish
+one to your registry (JFrog Artifactory, Sonatype Nexus, Verdaccio) and every
+pvmp user pointed at it can install it. pvmp hands the `.vsix` to VS Code
+unchanged.
 
-That means any registry you already run works — JFrog Artifactory, Sonatype
-Nexus, Verdaccio — with no pvmp-specific server component.
+There is no pvmp CLI. A package takes one short script to build, shown below.
 
-There is no `pvmp` CLI. The format is small enough to produce from CI in about
-twenty lines, and that is what this page is.
-
-## The package layout
+## The package
 
 ```
 @corp/vsc-lint-1.4.0.tgz
 └─ package/
-    package.json      ← metadata, mirrored from the extension manifest
-    icon.png          ← MUST come before extension.vsix
-    README.md
+    package.json      metadata from the extension manifest, plus a "pvmp" block
     CHANGELOG.md
-    extension.vsix    ← the real artifact
+    README.md
+    icon.png
+    extension.vsix    the extension itself, last
 ```
 
-### File ordering matters
+`extension.vsix` must come after the metadata files. pvmp reads icons by
+streaming the tarball and stopping once `icon.png` is complete, so with this
+order an icon costs a few KB. If the vsix comes first, pvmp downloads the whole
+package for each row in the list.
 
-Metadata entries **must** precede `extension.vsix` in the tarball.
-
-pvmp fetches icons by streaming the tarball and aborting as soon as `icon.png`
-is complete. With this ordering an icon costs a few KB. Without it, pvmp has to
-download the whole package — vsix included — for every row in the list.
-
-`npm pack` preserves the order files appear in, so listing them metadata-first
-in the staging directory is enough.
+`npm pack` sorts entries by file extension and puts `package.json` first, which
+gives this order on its own. Check the result with `tar -tzf` (see
+[Checking a package](#checking-a-package)).
 
 ## package.json
 
-Mirror the extension manifest, and add a `pvmp` block for the fields that live
-only inside `extension.vsixmanifest`. pvmp never parses that file, so anything
-not mirrored here is invisible to it.
+Copy the fields from your extension's manifest and add a `pvmp` block. pvmp
+never opens `extension.vsixmanifest`, so it only knows what you put here.
 
 ```jsonc
 {
@@ -62,55 +56,44 @@ not mirrored here is invisible to it.
 }
 ```
 
-| Field                       | Required    | Notes                                                       |
-| --------------------------- | ----------- | ----------------------------------------------------------- |
-| `name`                      | yes         | npm package name. Unrelated to the extension id.            |
-| `version`                   | yes         | Must be valid semver. Should match the vsix.                |
-| `engines.vscode`            | recommended | Range check. Defaults to `*`, i.e. always compatible.       |
-| `categories`                | recommended | Shown on the details page.                                  |
-| `pvmp.extensionId`          | **yes**     | `publisher.name`, exactly as VS Code knows it.              |
-| `pvmp.displayName`          | **yes**     | Shown in the list and the details hero.                     |
-| `pvmp.publisherDisplayName` | recommended | Falls back to the publisher segment of the id.              |
-| `pvmp.targetPlatform`       | no          | `universal` (default) or a VS Code target like `linux-x64`. |
-| `pvmp.preRelease`           | no          | Hidden unless the user opts in per extension.               |
+| Field                       | Required    | Notes                                                           |
+| --------------------------- | ----------- | --------------------------------------------------------------- |
+| `name`                      | yes         | The npm package name. It need not match the extension id.       |
+| `version`                   | yes         | Valid semver, the same as the vsix.                             |
+| `engines.vscode`            | recommended | Hides the version from older VS Code. Defaults to `*`.          |
+| `categories`                | recommended | Shown on the details page.                                      |
+| `keywords`                  | recommended | Verdaccio's search fallback finds `vscode-extension`.           |
+| `pvmp.extensionId`          | **yes**     | `publisher.name`, exactly as VS Code knows it.                  |
+| `pvmp.displayName`          | **yes**     | Shown in the list and on the details page.                      |
+| `pvmp.publisherDisplayName` | recommended | Defaults to the publisher part of the id.                       |
+| `pvmp.targetPlatform`       | no          | `universal` (the default) or a VS Code target like `linux-x64`. |
+| `pvmp.preRelease`           | no          | Hidden until a user opts in for this extension.                 |
 
-A package with no `pvmp` block is ignored, so a registry shared with ordinary
-npm packages is fine.
+pvmp ignores packages without a `pvmp` block, so you can share a registry with
+ordinary npm packages.
 
 ## Versions
 
-One npm version per extension version. pvmp reads the whole packument, so every
-published version appears in the version dropdown, ordered by semver.
+Publish one npm version per extension version. pvmp reads every published
+version and lists them in semver order in the details page's version picker.
 
-Platform-specific builds are separate npm versions with different
-`pvmp.targetPlatform` values. When two sources offer the same version, an exact
-platform match beats `universal`, and otherwise the earlier-configured source
-wins.
+For platform-specific builds, publish a separate npm version for each build
+with its own `pvmp.targetPlatform`. If two sources offer the same version, a
+build for the user's exact platform beats `universal`, and after that the
+source listed first in `pvmp.sources` wins.
 
-## Building the tarball
+## Building the package
+
+Save this as `scripts/build-pvmp-package.sh` in the extension's repository. It
+expects the `.vsix` from `vsce package` in the working directory.
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
 
-VSIX="$(ls ./*.vsix)"                       # produced by `vsce package`
 OUT=pvmp-dist
 rm -rf "$OUT" && mkdir -p "$OUT"
 
-# Order matters: metadata first, vsix last.
-cp package.json          "$OUT/package.json"   # then edit in the pvmp block
-cp media/icon.png        "$OUT/icon.png"
-cp README.md             "$OUT/README.md"
-cp CHANGELOG.md          "$OUT/CHANGELOG.md"
-cp "$VSIX"               "$OUT/extension.vsix"
-
-cd "$OUT" && npm pack
-```
-
-Adding the `pvmp` block with `jq`, reading what it can from the extension's own
-manifest:
-
-```bash
 jq '{
   name: ("@corp/" + .name),
   version, description, categories, license, repository, homepage, bugs,
@@ -119,14 +102,25 @@ jq '{
   pvmp: {
     extensionId: (.publisher + "." + .name),
     displayName: (.displayName // .name),
-    publisherDisplayName: (.publisher),
+    publisherDisplayName: .publisher,
     targetPlatform: "universal",
     preRelease: false
   }
-}' package.json > pvmp-dist/package.json
+} | with_entries(select(.value != null))' package.json > "$OUT/package.json"
+
+cp media/icon.png "$OUT/icon.png"
+cp README.md CHANGELOG.md "$OUT/"
+cp ./*.vsix "$OUT/extension.vsix"
+
+cd "$OUT" && npm pack
 ```
 
+Change the `@corp/` scope and the icon path to match your repository.
+
 ## Publishing from CI
+
+Each example runs `vsce package`, builds the package with the script above, and
+publishes it with `npm publish`.
 
 ### GitHub Actions
 
@@ -139,7 +133,7 @@ jq '{
     NODE_AUTH_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
 ```
 
-With an `.npmrc` written beside it:
+Write an `.npmrc` next to the package that points the scope at your registry:
 
 ```
 @corp:registry=https://art.corp/artifactory/api/npm/npm-local/
@@ -172,21 +166,21 @@ stage('publish') {
 }
 ```
 
-## Checking your package
+## Checking a package
 
 ```bash
-tar -tzf @corp-vsc-lint-1.4.0.tgz
+tar -tzf corp-vsc-lint-1.4.0.tgz
 ```
 
-Expect, in this order:
+`npm pack` 12 produces:
 
 ```
 package/package.json
-package/icon.png
-package/README.md
 package/CHANGELOG.md
+package/README.md
+package/icon.png
 package/extension.vsix
 ```
 
-If `extension.vsix` is not last, pvmp still works — it just stops being able to
-fetch icons cheaply.
+`package.json` must be present and `extension.vsix` should be last. Any other
+order still installs, but every icon then costs a full download.

@@ -15,9 +15,9 @@ export interface IpcHostOptions {
  * Serves `impl` over `transport`.
  *
  * `impl` must be a plain object whose own enumerable properties are the API
- * methods. Method names arrive from the webview, so they are resolved against
- * a snapshot taken here rather than by indexing the object at call time — that
- * keeps `__proto__`, `constructor` and inherited members entirely unreachable.
+ * methods. Method names come from the webview, so dispatch looks them up in a
+ * map built here, never by indexing `impl`. That keeps `__proto__`,
+ * `constructor` and inherited members out of reach.
  */
 export function serveIpc<Api extends ApiShape, Events extends EventMap>(
   impl: Api,

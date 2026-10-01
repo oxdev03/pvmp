@@ -4,9 +4,8 @@ const PREFIX = 'pvmp.token.';
 
 /**
  * Bearer tokens in SecretStorage, which is the OS keychain (SPEC.md §4.3).
- *
- * Never settings: those sync between machines and end up in dotfile repos.
- * `.npmrc` is deliberately not read either.
+ * Settings sync between machines and end up in dotfile repos, so tokens never
+ * go there. pvmp does not read `.npmrc`.
  */
 export class TokenStore {
   constructor(private readonly secrets: vscode.SecretStorage) {}

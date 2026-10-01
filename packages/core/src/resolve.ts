@@ -101,9 +101,9 @@ function statusOf(
 /**
  * Merges every source's versions into one entry per extension id.
  *
- * An extension is listed when at least one source offers an installable
- * version of it, or when it is installed — an installed extension with no
- * compatible version still needs to be visible so it can be uninstalled.
+ * An extension is listed when a source offers an installable version of it,
+ * or when it is installed. An installed extension with no compatible version
+ * stays listed so you can uninstall it.
  */
 export function buildCatalog(
   versions: readonly ExtensionVersion[],
@@ -146,8 +146,6 @@ export function buildCatalog(
         : {
             installed: {
               version: installedVersion,
-              // "external" means no configured source offers the installed
-              // version at all - e.g. it came from the public marketplace.
               external: !all.some((v) => v.version === installedVersion),
             },
           }),

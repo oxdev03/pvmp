@@ -4,8 +4,8 @@ import * as vscode from 'vscode';
 /**
  * FileStore over `vscode.workspace.fs`.
  *
- * Not `node:fs`: workspace.fs resolves remote URIs transparently, so the same
- * code works in a devcontainer, over SSH and in code-server (SPEC.md §8).
+ * workspace.fs resolves remote URIs, so this works in a devcontainer, over
+ * SSH and in code-server, where `node:fs` would not (SPEC.md §8).
  */
 export function createVscodeFileStore(root: vscode.Uri): FileStore {
   const resolve = (path: string): vscode.Uri =>
@@ -32,9 +32,7 @@ export function createVscodeFileStore(root: vscode.Uri): FileStore {
     async remove(path) {
       try {
         await vscode.workspace.fs.delete(resolve(path), { useTrash: false });
-      } catch {
-        // Already gone is the desired end state.
-      }
+      } catch {}
     },
 
     async list(path) {

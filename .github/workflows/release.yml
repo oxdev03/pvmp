@@ -1,8 +1,7 @@
 name: Release
 
-# Changesets opens a "Version Packages" PR; merging it creates the tag, and
-# the tag is what publishes. Nothing ships from an ordinary push to main —
-# v1 published a marketplace release for every README typo.
+# Changesets opens a "Version Packages" PR. Merging it creates the tag, and
+# only a tag publishes; an ordinary push to main ships nothing.
 on:
   push:
     branches: [main]
@@ -66,8 +65,8 @@ jobs:
         env:
           VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
 
-      # Corporate users on VSCodium, Cursor and Windsurf cannot reach the
-      # Microsoft marketplace at all (SPEC.md §14).
+      # VSCodium, Cursor and Windsurf cannot use the Microsoft Marketplace
+      # (SPEC.md §14).
       - name: Publish to Open VSX
         run: pnpm --filter pvmp exec ovsx publish ../../pvmp.vsix --pat "$OVSX_TOKEN"
         env:

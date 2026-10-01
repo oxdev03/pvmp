@@ -13,13 +13,9 @@ export const queryKeys = {
 };
 
 /**
- * Refreshes what an install or uninstall can actually change.
- *
- * Deliberately not a bare `invalidateQueries()`: that also invalidates every
- * icon, and an invalidation overrides their infinite staleTime, so installing
- * one extension would refetch every visible icon over IPC — each a possible
- * tarball stream on a cold host cache. Icons are keyed by version and never
- * change in place.
+ * Refetches what an install or uninstall can change. A bare
+ * `invalidateQueries()` would also refetch every visible icon, despite their
+ * infinite staleTime; icons are keyed by version and never change.
  */
 function invalidateAfterMutation(queryClient: QueryClient): Promise<void> {
   return Promise.all([
@@ -41,17 +37,12 @@ export function useDetails(extensionId: string | undefined, version?: string) {
   return useQuery<ExtensionDetails>({
     queryKey: queryKeys.details(extensionId ?? '', version),
     queryFn: () => host.getDetails(extensionId as string, version),
-    // Empty as well as undefined: asking the host for extension "" only
-    // produces a confusing "No such extension: " error.
+    // Also skips "", which would get "No such extension: " back.
     enabled: Boolean(extensionId),
   });
 }
 
-/**
- * Icons are fetched lazily, one row at a time, so the list does not pull
- * every tarball up front (SPEC.md §6.3). `enabled` is how a row defers until
- * it scrolls into view.
- */
+/** A row passes `enabled` once it scrolls into view (SPEC.md §6.3). */
 export function useIcon(extensionId: string, version: string | undefined, enabled: boolean) {
   const host = useHost();
   return useQuery<string | undefined>({
@@ -63,7 +54,7 @@ export function useIcon(extensionId: string, version: string | undefined, enable
   });
 }
 
-/** Invalidates the catalog whenever the host says it moved. */
+/** Refetches the catalog when the host emits catalogChanged. */
 export function useCatalogSync(): void {
   const queryClient = useQueryClient();
   useHostEvent(
@@ -74,7 +65,7 @@ export function useCatalogSync(): void {
   );
 }
 
-/** True while an install is running; a finished or failed one is not busy. */
+/** True while an install is running. */
 export function isBusy(progress: InstallProgress | undefined): progress is InstallProgress {
   return progress !== undefined && progress.phase !== 'done' && progress.phase !== 'failed';
 }

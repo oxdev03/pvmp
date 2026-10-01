@@ -54,7 +54,7 @@ describe('satisfiesEngine', () => {
 
 describe('resolveVersions ordering', () => {
   it('sorts by semver, not lexically', () => {
-    // v1's bug: string comparison put 1.9.0 above 1.10.0.
+    // String comparison would put 1.9.0 above 1.10.0, as 1.x did.
     const resolved = resolveVersions(
       [
         version({ version: '1.9.0' }),

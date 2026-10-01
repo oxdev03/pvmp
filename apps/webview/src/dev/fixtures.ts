@@ -158,10 +158,7 @@ export const CHANGELOG = `## 1.10.0
 - Initial public release
 `;
 
-/**
- * A README carrying the things a hostile or careless publisher might ship.
- * Used to prove the sanitizer actually runs (SPEC.md §7.7).
- */
+/** A README with script-injection vectors, for the sanitizer test (SPEC.md §7.7). */
 export const UNSAFE_README = `# Unsafe
 
 <script>window.__pvmpXss = true;</script>

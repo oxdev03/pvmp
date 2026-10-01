@@ -11,10 +11,10 @@ const PAGE_SIZE = 250;
 /**
  * Verdaccio.
  *
- * `/-/all` is legacy but Verdaccio still serves it and it is one request for
- * the whole catalog. `/-/v1/search` is the modern endpoint, used as the
- * fallback and paginated. This is the adapter with a live integration test
- * (SPEC.md §4.2), so it also validates the shared npm client.
+ * Tries `/-/all` first: deprecated, but Verdaccio still serves it, and it
+ * returns the whole catalog in one request. Falls back to the paginated
+ * `/-/v1/search`. The live integration test runs against this adapter
+ * (SPEC.md §4.2).
  */
 export const verdaccioAdapter: CatalogAdapter = {
   id: 'verdaccio',

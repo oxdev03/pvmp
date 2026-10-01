@@ -11,8 +11,8 @@ describe('encodeCacheKey', () => {
     expect(encodeCacheKey('vsc-lint_1.4.0')).toBe('vsc-lint_1.4.0');
   });
 
-  // The property that matters: the result is one path segment that cannot
-  // traverse. Percent-encoded dots inside it are harmless.
+  // The result must be one path segment that cannot traverse. Encoded dots
+  // inside it are harmless.
   it.each([
     '@corp/vsc-lint@1.4.0',
     '../../etc/passwd',
@@ -51,12 +51,10 @@ describe('BlobCache', () => {
     expect(await cache.get('icon', 'nope')).toBeUndefined();
   });
 
-  it('round-trips JSON and text', async () => {
+  it('round-trips JSON', async () => {
     const { cache } = make();
     await cache.putJson('meta-key', { a: 1 });
-    await cache.putText('readme', 'r', '# hi');
     expect(await cache.getJson('meta-key')).toEqual({ a: 1 });
-    expect(await cache.getText('readme', 'r')).toBe('# hi');
   });
 
   it('survives a corrupt index rather than throwing', async () => {
@@ -91,14 +89,13 @@ describe('BlobCache', () => {
     });
 
     it('evicts blobs a previous session never wrote to the index', async () => {
-      // The index is only persisted by flush(). A session that ends without
-      // one leaves blobs on disk that the next run cannot see — and an unseen
-      // blob was never evicted, so the cache grew without bound.
+      // Only flush() persists the index. Without reconciling, blobs from a
+      // session that never flushed would never be evicted.
       const store = createMemoryFileStore();
       const first = new BlobCache(store, 'cache', 250);
       await first.put('icon', 'a', bytes(200));
       await first.put('icon', 'b', bytes(200));
-      // Deliberately no flush(): simulate the window closing.
+      // No flush(): the window closed.
 
       const second = new BlobCache(store, 'cache', 250);
       await second.prune();
@@ -121,9 +118,8 @@ describe('BlobCache', () => {
     });
 
     it('keeps a blob written while it was listing the directory', async () => {
-      // refresh() emits catalogChanged and then prunes, so the webview's
-      // getIcon puts race the listing by construction. A blob indexed after
-      // the listing resolved is newer than the snapshot, not missing from it.
+      // refresh() emits catalogChanged and then prunes, so webview icon puts
+      // land during the listing.
       const store = createMemoryFileStore();
       let duringListing: (() => Promise<void>) | undefined;
       const racing: FileStore = {

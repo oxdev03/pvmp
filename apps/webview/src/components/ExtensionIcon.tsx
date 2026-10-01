@@ -10,11 +10,8 @@ export interface ExtensionIconProps {
 }
 
 /**
- * Loads the icon only once the row is on screen.
- *
- * Icons live inside the package tarball, so each one is a network fetch the
- * host streams and aborts early (SPEC.md §6.3). Fetching them for a whole
- * catalog up front would be the expensive mistake this defers.
+ * Requests the icon once the row scrolls into view. Each icon costs the host
+ * a partial tarball download (SPEC.md §6.3).
  */
 export function ExtensionIcon({
   extensionId,
@@ -22,8 +19,7 @@ export function ExtensionIcon({
   size = METRICS.iconSize,
 }: ExtensionIconProps) {
   const ref = useRef<HTMLDivElement>(null);
-  // jsdom and very old webviews have no IntersectionObserver; there, start
-  // visible rather than setting state from inside the effect.
+  // Without IntersectionObserver (jsdom), start visible.
   const [visible, setVisible] = useState(() => typeof IntersectionObserver === 'undefined');
 
   useEffect(() => {

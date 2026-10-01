@@ -17,10 +17,8 @@ export interface AdapterContext {
 }
 
 /**
- * Supplies the one thing npm's protocol cannot: which packages exist.
- *
- * Everything else — packuments, tarballs, auth, version resolution — is
- * identical across registries and lives in NpmSource (SPEC.md §3.2).
+ * Lists the packages in a registry, which the npm protocol has no portable
+ * way to do. NpmSource handles packuments, tarballs and auth (SPEC.md §3.2).
  */
 export interface CatalogAdapter {
   readonly id: string;
@@ -29,7 +27,7 @@ export interface CatalogAdapter {
 
 /**
  * Splits a registry URL shaped `<base><marker><repo>/` into the product's base
- * URL and repository name, with explicit `baseUrl`/`repo` settings winning.
+ * URL and repository name. `baseUrl` and `repo` settings take precedence.
  *
  * `https://art.corp/artifactory/api/npm/npm-local/` with marker `/api/npm/`
  * gives `https://art.corp/artifactory` and `npm-local`.

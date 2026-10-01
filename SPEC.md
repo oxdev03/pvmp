@@ -1,498 +1,518 @@
-# pvmp 2.0 — Rebuild Specification
+# pvmp 2.0 design
 
-Complete rewrite. No backward compatibility, no shared code with v1.
-Built on an orphan branch (`v2`); v1 history stays reachable on `main`.
+pvmp 2.0 is a rewrite that shares no code with 1.x and reads none of its
+settings. This document records what 2.0 does and why. Code comments cite its
+sections as `SPEC.md §n`, so keep the numbering stable.
 
-Status: agreed via design interview. Every decision below was explicitly chosen.
+## 1. Scope
 
----
+A VS Code extension that installs extensions from private sources: npm
+registries (JFrog Artifactory, Sonatype Nexus, Verdaccio) and local folders of
+`.tgz` packages. Its UI copies VS Code's Extensions view.
 
-## 1. What it is
+It publishes as `oxdev03.pvmp` 2.0.0, on the same Marketplace listing as 1.x.
+The major version marks the break.
 
-A VSCode extension providing a private extension marketplace for corporate
-environments. Extensions are distributed as **npm packages** (JFrog Artifactory,
-Sonatype Nexus, Verdaccio) or as **local `.tgz` files** in a folder. The UI is a
-1:1 visual clone of VSCode's own Extensions view.
+## 2. Package format
 
-Published as `oxdev03.pvmp` **v2.0.0** — same marketplace listing, major bump
-signals the break.
-
----
-
-## 2. Distribution format (our contract)
-
-An extension is an npm package whose tarball contains the `.vsix` as the
-canonical artifact. npm is transport only.
+An extension is an npm package whose tarball contains the `.vsix`. npm only
+transports it; pvmp hands the vsix to VS Code unchanged.
 
 ```
 @corp/vsc-lint-1.4.0.tgz
 └─ package/
-    package.json      ← metadata, mirrored from the extension manifest
-    icon.png          ← MUST precede extension.vsix (see §2.1)
-    README.md
+    package.json      metadata from the extension manifest, plus a "pvmp" block
     CHANGELOG.md
-    extension.vsix    ← the real artifact, opaque to pvmp
+    README.md
+    icon.png
+    extension.vsix
 ```
 
-`package.json` mirrors the extension manifest and adds a `pvmp` block for
-fields that exist only in the vsix manifest:
+`package.json` carries the manifest fields pvmp shows, and a `pvmp` block for
+the ones that otherwise live only in `extension.vsixmanifest`:
 
 ```jsonc
 {
   "name": "@corp/vsc-lint",
   "version": "1.4.0",
-  "description": "…",
-  "keywords": ["vscode-extension", "pvmp"],
   "engines": { "vscode": "^1.96.0" },
   "categories": ["Linters"],
   "pvmp": {
-    "extensionId": "acme.lint",     // publisher.name, as VSCode knows it
+    "extensionId": "acme.lint", // publisher.name, as VS Code knows it
     "displayName": "Corp Lint",
     "publisherDisplayName": "Acme",
-    "targetPlatform": "universal",  // or win32-x64, linux-arm64, …
-    "preRelease": false
-  }
+    "targetPlatform": "universal", // or a VS Code target such as linux-x64
+    "preRelease": false,
+  },
 }
 ```
 
-**Consequence: pvmp never parses `extension.vsixmanifest`.** All metadata comes
-from `package.json`, which the packument already carries. No XML parsing, no
-`xml2js`. The vsix is a blob handed to VSCode.
+pvmp never parses `extension.vsixmanifest`. A packument already contains
+every version's `package.json`, so the catalog needs no tarball and no XML.
+Packages without a `pvmp` block are ignored.
 
-### 2.1 Tarball file ordering
+[`docs/publishing.md`](docs/publishing.md) is the publisher-facing version of
+this section.
 
-Files MUST be ordered metadata-first: `package.json`, `icon.png`, `README.md`,
-`CHANGELOG.md`, then `extension.vsix`. pvmp streams tarballs and aborts the
-download once it has what it needs (§6.3). Wrongly-ordered tarballs still work,
-they just download in full.
+### 2.1 Entry order
+
+`extension.vsix` must come after the metadata entries, because pvmp reads
+icons by streaming the tarball and aborting (§6.3). A package in any other
+order still works but downloads in full for its icon. `npm pack` sorts entries
+by file extension with `package.json` first, which produces a valid order
+without any effort from the publisher.
 
 ### 2.2 No publishing CLI
 
-Documented format only, with an example CI snippet per platform (GitHub Actions,
-GitLab CI, Jenkins). Decided: not worth owning a CLI.
-
----
+The format is small enough to build with `jq` and `npm pack`.
+`docs/publishing.md` gives the script and CI examples for GitHub Actions,
+GitLab and Jenkins. A CLI would be one more thing to version and support.
 
 ## 3. Architecture
 
-### 3.1 Workspace (pnpm)
+### 3.1 Workspace
 
 ```
 apps/
-  extension/          VSCode host code + the extension manifest
-  webview/            React app, Vite, two mount points (list, details)
+  extension/      VS Code host. Its package.json is the extension manifest.
+  webview/        React app: the sidebar and details entry points.
 packages/
-  contract/           IPC + domain types. Zero runtime deps.
-  core/               registry, cache, install orchestration, semver resolution,
-                      tarball reader
-  source-local/       LocalSource
-  source-npm/         NpmSource + catalog adapters
-tooling/              shared tsconfig / oxlint / vite presets
+  contract/       IPC and domain types. No runtime dependencies.
+  core/           Version resolution, tarball reading, cache, source interfaces.
+  source-local/   LocalSource.
+  source-npm/     NpmSource and its catalog adapters.
+tooling/          Shared tsconfig.
 ```
 
-Sources are real packages so the `SourceProvider` boundary is enforced by the
-module graph rather than by discipline. `contract` has zero deps so both the
-Node host and the browser bundle can import it safely.
+The internal packages are source-only: `exports` points at `src/index.ts`.
+Only the two apps build, so there are no project references or declaration
+files to keep in step.
 
-### 3.2 Plugin seams
+The extension's workspace package is named `pvmp`, because its `package.json`
+is the VS Code manifest and vsce rejects a scoped name.
 
-Two small registries, not one big one.
+`core` never imports `vscode`. The host injects a `FileStore`, a logger and
+the other services, so core runs under plain Vitest.
+
+### 3.2 Extension points
+
+Each source type lives in its own package, so the module graph enforces the
+interface between core and sources.
 
 ```ts
 interface SourceProvider {
   readonly id: string;
-  list(ctx: SourceCtx): Promise<ExtensionRef[]>;
-  resolve(ref: ExtensionRef): Promise<ExtensionMeta>;
-  fetchIcon(ref: ExtensionRef): Promise<Uint8Array | undefined>;
-  fetchVsix(ref: ExtensionRef): Promise<Uint8Array>;
+  list(): Promise<ExtensionVersion[]>;
+  fetchDetails(version: ExtensionVersion): Promise<ExtensionDetailContent>;
+  fetchIcon(version: ExtensionVersion): Promise<Uint8Array | undefined>;
+  fetchVsix(version: ExtensionVersion): Promise<Uint8Array>;
+  dispose?(): void;
+}
+
+interface SourceFactory {
+  readonly type: string; // the `type` in pvmp.sources
+  create(config: RawSourceConfig, deps: SourceDeps): SourceProvider;
 }
 
 interface CatalogAdapter {
-  readonly id: 'jfrog' | 'nexus' | 'verdaccio';
-  detect?(registryUrl: string, ctx: SourceCtx): Promise<boolean>;
-  listPackages(ctx: SourceCtx): Promise<string[]>;
+  readonly id: string;
+  listPackages(ctx: AdapterContext): Promise<string[]>;
 }
 ```
 
-`NpmSource` owns everything shared across registries — packument fetch, tarball
-fetch, ETag caching, auth, version resolution. Adapters supply only
-`listPackages()`, roughly 40 LOC each. `LocalSource` implements `SourceProvider`
-directly.
+The host registers the two factories at activation. There is no API for
+third-party sources.
 
-Both sources share one `readPvmpTarball()` in `core`. Only the transport
-differs: filesystem vs HTTP. Testing the remote path effectively tests the local
-path.
-
-Registration is explicit at activation. No public extension API, no third-party
-plugin contract — in-repo providers only.
-
----
+`NpmSource` handles everything the registries share: packuments, tarballs,
+ETags and auth. An adapter only lists package names, because npm has no
+portable way to do that. Both sources read packages with the same
+`readPvmpTarball()` from core.
 
 ## 4. Sources
 
-### 4.1 LocalSource
-
-Recursive scan for `*.tgz`, default depth 3, configurable, with glob ignores.
-A `FileSystemWatcher` on `**/*.tgz` invalidates the cache and refreshes the view
-without a manual reload. Cache key: `path + mtime + size`.
+### 4.1 Local folders
 
 ```jsonc
 { "type": "local", "path": "${userHome}/vsix", "depth": 3 }
 ```
 
-`${userHome}` and `${workspaceFolder}` are substituted. The resolved absolute
-path is logged, because in a remote context it is not obvious whose filesystem
-it refers to (§8).
+pvmp scans breadth-first for `*.tgz`, `depth` levels deep (default 3),
+skipping `node_modules`, `.git`, `.svn`, `.hg` and `.cache`. Cached metadata is
+keyed by path, mtime and size, so editing a file re-reads it. The file's mtime
+stands in for a publish date.
 
-### 4.2 NpmSource
+Paths accept `${userHome}`, `${workspaceFolder}` and `${env:NAME}`. The
+resolved path is logged, because in a remote window it refers to the remote
+machine (§8).
 
-1. Adapter lists package names.
-2. Packument per package (`GET /{name}`, ETag-cached) yields every version with
-   its full `package.json`.
-3. Tarball fetched lazily — only for icons (streamed, aborted early) and installs.
+### 4.2 npm registries
 
-Ships in v2:
+1. The adapter lists package names.
+2. pvmp fetches each packument (`GET /<name>`, revalidated by ETag), which
+   holds every version's `package.json` and publish time.
+3. It reads a tarball only for an icon (the first few KB, §6.3), for the
+   details page, or to install.
 
-| Adapter | Listing | Test level |
-|---|---|---|
-| `verdaccio` | `/-/all`, `/-/v1/search` | **Live** — Verdaccio via testcontainers |
-| `jfrog` | `/artifactory/api/storage/{repo}` walk | Recorded HTTP fixtures |
-| `nexus` | `/service/rest/v1/components?repository=` (cursor-paginated) | Recorded HTTP fixtures |
+| `adapter`   | Lists packages with                                 | Tested against              |
+| ----------- | --------------------------------------------------- | --------------------------- |
+| `verdaccio` | `/-/all`, falling back to `/-/v1/search`            | A live Verdaccio container  |
+| `jfrog`     | `GET /api/storage/<repo>?list&deep=1`               | Recorded responses only     |
+| `nexus`     | `GET /service/rest/v1/components?repository=<repo>` | Recorded responses only     |
 
-Verdaccio gets a real end-to-end test — publish a fixture package containing a
-real vsix, then list → packument → tarball → vsix extract. It validates the
-shared npm client the other two ride on.
+Without an `adapter` setting, a registry URL containing `/api/npm/` selects
+`jfrog` and one containing `/repository/` selects `nexus`. Any other URL is a
+configuration error, because the wrong listing API would produce an empty
+catalog with no visible cause. `repo` and `baseUrl` override the values
+derived from the URL. `scope` restricts the catalog to one npm scope.
+
+The Verdaccio test publishes a package containing a real vsix, then lists,
+fetches the packument and tarball, and extracts the vsix. That also covers
+the HTTP client the JFrog and Nexus adapters use.
 
 ### 4.3 Authentication
 
-Bearer token per source, in VSCode SecretStorage (OS keychain), keyed
-`pvmp.token.<sourceId>`. `.npmrc` is deliberately **not** read.
+Each source can have a bearer token, stored in SecretStorage (the OS keychain)
+under `pvmp.token.<sourceId>` and sent as `Authorization: Bearer <token>`.
+**Private Marketplace: Sign in to Source** asks for it; submitting an empty
+token deletes it. pvmp does not read `.npmrc`.
 
-```
-Authorization: Bearer <token>
-```
+Settings sync between machines, so tokens never go there. Error messages and
+log lines strip userinfo from URLs, so a registry configured as
+`https://user:pass@host/` does not leak its password into the error banner.
 
-Command `PVMP: Sign in to Source` → QuickPick of configured sources → input box
-→ `context.secrets.store`. A 401 surfaces in the UI (§7.4).
+A 401 or 403 becomes an `auth` error, and its banner offers sign-in (§7.4).
 
-### 4.4 Conflict resolution
+### 4.4 Several sources
 
-One marketplace entry per `pvmp.extensionId`. The version list is the union
-across all sources, each version tagged with its origin. Identical versions from
-two sources: configured source order wins, the loser is marked shadowed. The
-details page shows each version's source.
-
----
+pvmp shows one entry per `pvmp.extensionId`, with the versions of every
+source merged. When two sources offer the same version, a build for the exact
+host platform beats `universal`. After that, the source listed first in
+`pvmp.sources` wins. The loser stays in the version list, marked shadowed, and
+the details page names each version's source.
 
 ## 5. Version resolution
 
-The v1 bug: versions were compared with `a > b` string sort, so `1.10.0` ranked
-below `1.9.0`.
+A version is installable when its version string is valid semver, its
+`targetPlatform` is `universal` or matches the host, `engines.vscode` accepts
+the running VS Code, and it is not a pre-release (unless you opted in for that
+extension). Insiders builds report versions like `1.99.0-insider`, so the
+engine check includes pre-releases.
 
-```ts
-const candidates = versions
-  .filter(v => semver.satisfies(vscodeVersion, v.engines.vscode))
-  .filter(v => v.targetPlatform === platform || v.targetPlatform === 'universal')
-  .filter(v => (v.preRelease ? optedIn(extensionId) : true))
-  .sort(semver.rcompare);
+Versions sort with `semver.rcompare`. 1.x compared strings and ranked 1.9.0
+above 1.10.0.
 
-const latest     = candidates[0];
-const hasUpdate  = installed && semver.gt(latest.version, installed);
+An entry's status is `update-available` when the newest installable version
+is greater than the installed one. An installed extension stays listed even
+with no installable version, so you can still uninstall it. If no source
+offers the installed version (it came from the public Marketplace, say), the
+entry is marked external.
+
+The host platform comes from `process.platform` and `process.arch`, plus
+`/etc/alpine-release` to tell Alpine from other Linux.
+
+## 6. Cache
+
+`BlobCache` stores blobs under `globalStorage/cache/` through
+`vscode.workspace.fs`, which also works on remote hosts.
+
+```
+cache/
+  meta/<key>.json    packuments with their ETag, detail content, local metadata
+  icon/<key>.png     icons
+  index.json         size and access order of every blob
 ```
 
-Pre-releases are hidden unless the user opts in per extension, mirroring the
-real marketplace toggle.
+| Key                                 | Holds                                    |
+| ----------------------------------- | ---------------------------------------- |
+| `packument:<source>:<name>`         | A packument and its ETag                 |
+| `details:<source>:<package>@<ver>`  | README, CHANGELOG and links              |
+| `<source>:<package>@<ver>`          | An npm package's icon                    |
+| `<source>:<path>:<mtime>:<size>`    | A local package's metadata and icon      |
+| `webview:<extensionId>@<ver>`       | The copy the webview loads by URI (§7.7) |
 
----
+The cache never decides what is stale; a key changes when its content can.
+Keys are percent-encoded into one path segment, because they contain
+registry-supplied names.
 
-## 6. Caching
-
-Content-addressed, under `context.globalStorageUri`. Accessed via
-`vscode.workspace.fs` throughout, so remote URIs work transparently.
-
-```
-globalStorage/pvmp/cache/
-  meta/<key>.json       manifest fields + links
-  readme/<key>.md
-  changelog/<key>.md
-  icon/<key>.png        served via asWebviewUri — never a base64 data: URI
-  index.json            key → source, lastSeen, size
-```
-
-Keys: `sha256` (remote, from packument `dist.integrity`) or `path+mtime+size`
-(local). LRU eviction against a size cap, default 200MB.
-
-Packuments are cached separately with ETag revalidation.
+Eviction is LRU against `pvmp.cacheSizeMb` (default 200). Access order is a
+counter, because `Date.now()` cannot order writes within a millisecond.
+Every refresh prunes and then flushes the index, and `deactivate()` flushes
+too. Pruning first reconciles the index with the disk: blobs from a session
+that never flushed are adopted as least recently used, and entries whose file
+is gone are dropped.
 
 ### 6.3 Streaming icon fetch
 
-Icons are fetched lazily per visible row via `IntersectionObserver`, cached
-permanently by `package@version`. The fetch streams the tarball through
-`fflate`'s gunzip into `nanotar`, and calls `AbortController.abort()` the moment
-`icon.png` is complete.
+The sidebar requests an icon when its row scrolls into view
+(`IntersectionObserver`). NpmSource streams the tarball through fflate's
+push-based `Gunzip` into a small incremental tar reader and aborts the fetch
+once `icon.png` is complete. A test asserts that a 525KB package costs under
+16KB.
 
-With §2.1 ordering that costs ~5KB instead of the full multi-MB tarball. Without
-it, the download completes normally. This is the known cost of choosing lazy
-fetch over embedding icons in `package.json`.
+`DecompressionStream` is not usable here: `pipeThrough` runs its own read loop
+ahead of the consumer, so the whole tarball transfers even after the reader
+stops.
 
-Rows render a placeholder codicon until the icon resolves.
-
----
+LocalSource reads the file and caches the icon on first use. Either source
+re-extracts an icon that was evicted.
 
 ## 7. Webview
 
 ### 7.1 Surfaces
 
-Two React mount points from one Vite build, sharing components:
+- **Sidebar.** A `WebviewViewProvider` in the activity bar, with a badge
+  counting available updates.
+- **Details.** A `WebviewPanel` in an editor tab titled `Extension: <name>`.
+  Opening another extension reuses the open panel, as VS Code's own extension
+  editor does.
 
-- **Sidebar** — `WebviewViewProvider` in the activity bar. Replaces v1's
-  `TreeView` entirely.
-- **Details** — `WebviewPanel` in an editor tab, a clone of VSCode's extension
-  editor.
+Both come from one Vite build with two entry points and shared components.
 
-### 7.2 Sidebar (v2 scope)
+### 7.2 Layout
 
-Grouped, collapsible, sorted by name: **Updates Available / Installed /
-Available**. Marketplace-style rows: 42×42 icon, name, publisher, version,
-description snippet, action button.
+The sidebar groups extensions into **Updates Available**, **Installed** and
+**Available**, each sorted by display name and collapsible. A row shows a 36px
+icon, name, version, description, publisher and an Install, Update or
+Uninstall button. Uninstall appears on hover, as in VS Code.
 
-**No search box, no filter chips, no sort dropdown in v2** — deferred to v3.
+The details page has a 128px icon, name, version picker, Install and Uninstall
+buttons, a pre-release checkbox and a **Show log** link. Below are Details
+(the README) and Changelog tabs, and a column with categories, links and a
+More Info table.
 
-### 7.3 Visual fidelity — "exact 1:1"
+Search, filters and sorting are deferred to 3.0.
 
-Metrics ported from VSCode's own MIT-licensed CSS (`extensionsViewlet.css`,
-`extensionEditor.css`), not eyeballed: exact row heights, paddings, font sizes,
-weights, and theme-color keys.
+### 7.3 Visual fidelity
 
-Locked in by Playwright screenshot diffs against reference captures of the real
-Extensions view, across **dark / light / high-contrast**. Goldens are generated
-inside a container so font rendering is reproducible across machines and CI.
+Row height, padding, icon size, font weights and colour tokens come from VS
+Code's own source (`apps/webview/src/components/metrics.ts` cites each file).
 
-### 7.4 Error surface
+Playwright stores golden screenshots of both views in Dark Modern, Light
+Modern and Dark High Contrast. They are rendered in the Playwright container,
+because macOS and Linux render fonts too differently to compare, and the pixel
+checks run only on Linux. A second test asserts that every `--vscode-*` token
+the UI uses resolves, since a missing one renders transparent without error.
 
-A single generic error banner component handles every source failure — 401,
-unreachable, TLS, parse error — showing the message, a `Show log` link, and a
-`Sign in` action when the failure is 401. No per-source health panel.
+The README screenshots come from the packaged extension running in
+code-server (`pnpm screenshots`).
+
+### 7.4 Errors
+
+Each failing source gets one banner with its message and a **Show log**
+button. Auth failures add **Sign in**. A failing source contributes no
+entries; the other sources still list.
+
+The log is a `LogOutputChannel`, so you can raise it to Trace from the Output
+panel without reloading.
 
 ### 7.5 Styling
 
-Tailwind v4, CSS-first config. The archived `@githubocto/tailwind-vscode`
-(Tailwind v3 `plugin()` API, archived 2026-08-06) is **cloned and ported** to a
-v4 `@theme` block — a codegen script emits `--color-vscode-*` aliases for every
-VSCode theme color id. No runtime dependency.
+Tailwind v4. `scripts/generate-vscode-theme.mjs` reads VS Code's theme colour
+reference and writes an `@theme inline` block with a Tailwind colour for each
+of the 910 `--vscode-*` variables, so `bg-vscode-editor-background` follows
+the active theme. It replaces `@githubocto/tailwind-vscode`, a Tailwind v3
+plugin archived on 2026-08-06.
 
-`@vscode-elements/react-elements` supplies the real widgets (dropdown, tabs,
-checkbox, badge). `@vscode/webview-ui-toolkit`, used in v1, was deprecated in
-January 2025 and is not used.
+The controls are native elements styled with those tokens. There is no
+component library.
 
-### 7.6 Data layer
+### 7.6 Data
 
-TanStack Query over the typed IPC client. Each `HostApi` method becomes a query
-or mutation; caching, dedup, loading/error states, retry and stale-time come
-free. Host events map to `queryClient.invalidateQueries`.
+TanStack Query wraps the typed IPC client. `catalogChanged` from the host
+refetches the catalog. Install, uninstall and the pre-release toggle refetch
+the catalog and details only; icons have an infinite stale time, because
+they are keyed by version.
 
-### 7.7 Markdown & CSP
+### 7.7 Markdown and CSP
 
-README and CHANGELOG cross the wire as **raw markdown** and render in the
-webview with `react-markdown` + `rehype-sanitize`.
+READMEs and CHANGELOGs arrive as raw markdown. The webview renders them with
+`react-markdown`, `remark-gfm` and `rehype-sanitize`, which drops scripts,
+event handlers and `javascript:` URLs. Headings move down one level so the
+page title stays the only `<h1>`. Links open outside the webview.
+
+The host sets this CSP:
 
 ```
-Content-Security-Policy:
-  default-src 'none';
-  script-src 'nonce-{nonce}';
-  style-src {cspSource} 'unsafe-inline';
-  img-src {cspSource} https: data:;
-  font-src {cspSource};
+default-src 'none';
+script-src 'nonce-<nonce>' <cspSource>;
+style-src <cspSource> 'unsafe-inline';
+img-src <cspSource> https: data:;
+font-src <cspSource>;
+connect-src 'none';
 ```
 
-Relative README image paths are rewritten to cached files served via
-`asWebviewUri` — fixing v1's documented "local images unsupported" limitation.
+The entry script carries the nonce. It imports a shared chunk, and CSP does
+not pass a nonce on to imported modules, so `script-src` also allows
+`cspSource`. `localResourceRoots` limits that origin to the extension's
+`dist/` and its global storage.
 
----
+Icons load as `asWebviewUri` files from the cache, never as base64 over IPC.
+Images in READMEs load only from `https:` and `data:` URLs (§17).
 
-## 8. Runtime placement
+The host passes the details target as `data-extension-id` on `#root`. The
+name is a shared constant, and the host rejects any attribute that is not
+lowercase kebab-case: the HTML parser lowercases attribute names, so a
+camelCase name would be unreadable through `dataset`.
+
+## 8. Where it runs
 
 ```jsonc
-"engines": { "vscode": "^1.96.0" },   // Node 20
-"extensionKind": ["workspace", "ui"]  // prefer remote
+"engines": { "vscode": "^1.96.0" },  // Node 20
+"extensionKind": ["workspace", "ui"]
 ```
 
-Desktop only. **No web build** — `vscode.dev` is out of scope. Devcontainers,
-SSH remotes and code-server are in scope; all three run a Node extension host.
+Desktop VS Code, devcontainers, Remote SSH and code-server. Not VS Code for
+the Web: it cannot install from a vsix, and a corporate registry would have to
+send CORS headers to `vscode.dev`.
 
-Preferring `workspace` means installs land in the container/remote where the
-developer actually works, and it is the only mode code-server can offer. The
-tradeoff: a local-folder source resolves against the remote filesystem. The
-resolved path is logged so this is never a mystery.
+`workspace` comes first, so in a remote window pvmp runs on the remote side
+and installs land where the code is; code-server offers only that side. A
+local source path therefore resolves on the remote machine, which is why
+pvmp logs it.
 
-File access goes through `vscode.workspace.fs` rather than `node:fs`, which
-handles remote URIs uniformly at no extra cost.
+All file access goes through `vscode.workspace.fs`, which resolves remote URIs.
 
----
+## 9. Installing and updating
 
-## 9. Install & update
+To install, pvmp fetches the tarball, writes the vsix to
+`globalStorage/tmp/`, runs `workbench.extensions.installExtension` with its
+URI and deletes the temp file. Updating an extension that is already loaded
+offers a reload; a first install does not. Uninstalling always offers one.
+1.x reloaded the window after every install.
 
-Install: fetch `.tgz` → extract `extension.vsix` → write to a temp dir →
-`workbench.extensions.installExtension` with a `Uri` → await
-`vscode.extensions.onDidChange` → clean up.
+**Update All** installs one extension at a time, skips any still in backoff,
+and offers a single reload at the end. Each failure doubles the wait before
+the next attempt (2, 4, 8 minutes and so on, capped at a day).
 
-**Reload only when VSCode reports it is required.** v1 hard-reloaded the window
-after every install and uninstall.
+pvmp checks for updates on activation, on refresh, and every
+`pvmp.checkInterval` seconds, and updates the badge. With `pvmp.autoUpdate`
+on, the background check installs updates too.
 
-Update policy: check on activation and on explicit refresh, show a badge, user
-clicks Update. Opt-in auto-update behind a setting.
-
-Failure state and backoff live in `context.globalState`, **never in settings**.
-v1 wrote a `failedUpdates` array into user settings, which syncs across machines
-and conflates user intent with scratch state.
+Bookkeeping lives in `globalState`, settings hold only your choices:
 
 ```
-globalState:  lastCheck, failures: { 'acme.lint@1.4.0': { n: 2, until: … } }
-settings:     pvmp.sources, pvmp.autoUpdate, pvmp.checkInterval  (intent only)
+globalState  preReleaseOptIn: ['acme.lint']
+             installFailures: { 'acme.lint@1.4.0': { attempts: 2, until: <ms> } }
+settings     pvmp.sources, pvmp.autoUpdate, pvmp.checkInterval, pvmp.cacheSizeMb
 ```
 
-Installed status is read from `vscode.extensions.all` regardless of origin. If
-an extension was installed from the public marketplace and a private source
-offers a different version, that is shown honestly rather than hidden.
-
----
+Installed versions come from `vscode.extensions.all`, whatever their origin.
 
 ## 10. IPC
 
-Hand-written, roughly 150 LOC in `packages/contract` + a client/host pair. No
-dependency on `react-vscode-webview-ipc`.
+Hand-written, in `packages/contract`. Both sides derive from one type:
 
 ```ts
-// packages/contract
-export interface HostApi {
-  listCatalog(): Promise<CatalogEntry[]>;
-  getDetails(id: string): Promise<ExtensionDetails>;
-  getIcon(id: string, version: string): Promise<string | undefined>; // webview uri
-  install(id: string, version: string): Promise<InstallResult>;
-  uninstall(id: string): Promise<void>;
+type HostApi = {
+  listCatalog(): Promise<CatalogSnapshot>;
+  getDetails(extensionId: string, version?: string): Promise<ExtensionDetails>;
+  getIcon(extensionId: string, version: string): Promise<string | undefined>;
+  install(extensionId: string, version: string): Promise<InstallResult>;
+  uninstall(extensionId: string): Promise<InstallResult>;
   refresh(): Promise<void>;
   signIn(sourceId: string): Promise<void>;
-  setPreReleaseOptIn(id: string, on: boolean): Promise<void>;
-}
+  setPreReleaseOptIn(extensionId: string, on: boolean): Promise<void>;
+  openExtension(extensionId: string): Promise<void>;
+  openLog(): Promise<void>;
+  addLocalSource(): Promise<void>;
+};
 
-export interface HostEvents {
+type HostEvents = {
   catalogChanged: () => void;
-  installProgress: (p: { id: string; phase: Phase; pct?: number }) => void;
-  sourceError: (e: { sourceId: string; kind: ErrorKind; message: string }) => void;
-}
+  installProgress: (progress: InstallProgress) => void;
+  sourceError: (error: SourceError) => void;
+};
 ```
 
-Transport: request-id map, promise table, configurable timeout, event emitter.
-Both sides are generated from the one interface, so drift is a type error.
+`HostApi` is a type alias because only aliases get the implicit index
+signature the generic `ApiShape` constraint needs.
 
----
+Messages are `{ t: 'req' | 'res' | 'evt' }` objects. The client is a `Proxy`
+that turns each call into a request with an id and a 30-second timeout. The
+host builds a map of the implementation's own function properties up front,
+so a method name from the webview can never reach `__proto__` or inherited
+members. Every payload must survive structured clone.
+
+The webview creates one client per document and never disposes it, because
+`acquireVsCodeApi` can be called only once and StrictMode mounts twice.
 
 ## 11. Build
 
-Vite for both targets — one tool, one config language, one plugin ecosystem.
+Vite builds both targets: the webview into `apps/extension/dist/webview/` with
+fixed file names the host can reference, and the host into
+`dist/extension.cjs` with `vscode` external.
 
-```
-apps/webview/vite.config.ts     → dist/webview/
-apps/extension/vite.config.ts   → dist/extension.cjs
-    lib: { formats: ['cjs'] }
-    rollupOptions: { external: ['vscode'] }
-    ssr: true, target: 'node20'
-```
+`vsce package --no-dependencies` packages the bundled output; vsce cannot walk
+pnpm's symlinked `node_modules`. Production builds emit no sourcemap, because
+vsce's ignore rules did not keep it out of the vsix.
 
-`vsce package --no-dependencies` over the bundled output. **This flag is
-mandatory** — `vsce` cannot walk pnpm's symlinked `node_modules`, so everything
-must be bundled.
-
-Archives: `fflate` (zip + gunzip, ~8KB, no native deps) + `nanotar`. No
-`adm-zip`, which is Node-only and pulls native concerns into packaging.
-
----
+Archives use fflate (gzip) and nanotar (whole tarballs), plus the streaming
+reader of §6.3.
 
 ## 12. Tooling
 
-| Concern | Tool |
-|---|---|
-| Lint | **oxlint** (pinned exact) |
-| Format | **oxfmt** (pinned exact — 0.68.0, pre-1.0) |
-| Types | `tsc -b --noEmit` |
-| Unit tests | Vitest |
-| E2E / visual | Playwright |
-| Versioning | Changesets |
-| Hooks | lint-staged + simple-git-hooks |
+| Concern   | Tool                                                               |
+| --------- | ------------------------------------------------------------------ |
+| Packages  | pnpm 11                                                            |
+| Types     | TypeScript 7, typecheck only; `tsconfig.node.json` and `tsconfig.web.json` |
+| Lint      | oxlint 1.83.0                                                      |
+| Format    | oxfmt 0.68.0                                                       |
+| Tests     | Vitest, Playwright, testcontainers                                 |
+| Releases  | Changesets                                                         |
 
-oxfmt is pre-1.0 and passes ~95% of Prettier's JS/TS suite; `vuejs/core` and
-`vercel/turborepo` use it in production. Both oxc tools are pinned to exact
-versions, not caret ranges, because pre-1.0 minors can change formatting output.
+The split tsconfigs keep DOM globals out of host code and Node globals out of
+webview code. `contract` is checked under both.
 
-oxlint has ported most `react-hooks` and `jsx-a11y` rules, covering the
-accessibility linting the pixel-clone UI needs.
-
----
+oxlint and oxfmt are pinned to exact versions, because oxfmt is pre-1.0 and a
+minor release can change formatting.
 
 ## 13. Testing
 
-| Layer | Scope |
-|---|---|
-| **Vitest** — `core`, `source-*` | Version-resolution matrix (semver × engine × target × pre-release), tarball parsing, cache keying, source merging and priority, streaming abort. Pure functions; the highest-value tests in the repo, and where v1's real bugs lived. |
-| **Playwright** — `apps/webview` | Standalone against the Vite dev server with mocked IPC. List rendering, grouping, version dropdown, install/uninstall flows, error and empty states, plus dark/light/high-contrast visual diffs. |
-| **Verdaccio integration** | A real Verdaccio, started with testcontainers. Publish a fixture package containing a real vsix, then list → packument → tarball → vsix extract, end to end. testcontainers rather than raw `docker` calls for its reaper: a container must not survive a killed test run. |
+| Layer                  | Covers                                                                 |
+| ---------------------- | ---------------------------------------------------------------------- |
+| Vitest                 | IPC, version resolution, tarball reading, streaming abort, cache, both sources, adapters against recorded responses |
+| Playwright             | Both views against a mock host: grouping, version picker, install flows, errors, empty state, sanitizer, lazy icons, visual goldens |
+| Verdaccio (testcontainers) | The npm path end to end against a real registry (§4.2)             |
+| Bundle smoke test      | Loads `dist/extension.cjs` with a stub `vscode`, activates it, and checks every manifest command is registered |
 
-**No `@vscode/test-cli` extension-host tests** — deliberately skipped as the
-slowest and flakiest layer.
+There are no extension-host tests (`@vscode/test-cli`); they are the slowest
+and least reliable layer. The bundle smoke test catches the packaging
+mistakes that would otherwise surface only after installing the vsix, but
+not misuse of the VS Code API.
+
+Integration tests start containers through testcontainers. Its Ryuk reaper
+removes them when the test process dies, which `docker run --rm` would not do
+for a container that never stops on its own.
 
 ### 13.1 Playwright harness
 
-Mocked at the `acquireVsCodeApi` boundary — not at the API object. A dev-only
-shim defines `window.acquireVsCodeApi()` and runs an in-page `HostApi`
-implementation over the same postMessage path, so the entire IPC layer
-(serialization, request ids, timeouts, event fan-out) executes under test.
+The dev harness replaces `window.acquireVsCodeApi` with a fake host that
+answers over the same `postMessage` path, so the webview's IPC code runs
+unchanged under test: request ids, timeouts, events and structured clone.
 
-```ts
-// apps/webview/src/dev/mock-host.ts
-window.acquireVsCodeApi = () => ({
-  postMessage: m => fixtureHost.handle(m),
-  getState, setState,
-});
-```
-
-Scenarios are selected by URL (`?fixture=empty-catalog`, `?fixture=auth-401`)
-and driven from tests via `window.__pvmpMock` — force a 401, a slow install, an
-empty catalog. The mock is the IPC transport plus a thin fixture responder,
-nothing more.
-
----
+`?fixture=` selects a scenario (`auth`, `unreachable`, `slow-install`,
+`install-fails`, `unsafe-readme`, `empty`, `many`, `no-icons`), and tests drive
+the fake through `window.__pvmpMock`.
 
 ## 14. Release
 
-Changesets → version PR → tag → publish.
-
 ```
-pnpm changeset                     → .changeset/*.md
-CI on main:
-  changesets/action                → "Version Packages" PR
-  merge → tag v2.0.0
-  vsce publish --no-dependencies   → VS Marketplace
-  ovsx publish --no-dependencies   → Open VSX
-  gh release + .vsix asset
+pnpm changeset                 adds .changeset/*.md
+push to main                   changesets/action opens a "Version Packages" PR
+merge                          tags v2.x.y
+tag                            vsce publish (Marketplace), ovsx publish (Open VSX),
+                               GitHub release with the vsix
 ```
 
-Only `apps/extension` publishes; workspace packages stay `"private": true`.
-
-Open VSX matters: corporate users on VSCodium, Cursor and Windsurf cannot reach
-the Microsoft marketplace at all.
-
-This replaces v1's publish-on-every-push-to-main, where a README typo shipped a
-release.
-
----
+Only `apps/extension` publishes. The other packages are private. Open VSX
+matters because VSCodium, Cursor and Windsurf cannot use the Microsoft
+Marketplace. 1.x published on every push to main.
 
 ## 15. Migration
 
-**None.** v1's `privateMarketplace.Source` is not read. Existing users open an
-empty marketplace and reconfigure, guided by a `viewsWelcome` entry and the
-CHANGELOG. Explicitly chosen over a ~15 LOC migration shim.
-
----
+None. 2.0 does not read 1.x's settings, and an empty sidebar offers **Add
+Folder Source**. The changeset tells upgraders to reconfigure `pvmp.sources`
+and republish in the 2.0 format.
 
 ## 16. Settings
 
@@ -504,97 +524,34 @@ CHANGELOG. Explicitly chosen over a ~15 LOC migration shim.
       "type": "npm",
       "id": "corp-artifactory",
       "registry": "https://art.corp/artifactory/api/npm/npm-local/",
-      "adapter": "jfrog",          // omit to auto-detect
-      "scope": "@corp"
-    }
+      "adapter": "jfrog", // optional, inferred from the URL
+      "scope": "@corp",
+    },
   ],
   "pvmp.autoUpdate": false,
   "pvmp.checkInterval": 3600,
-  "pvmp.cacheSizeMb": 200
+  "pvmp.cacheSizeMb": 200,
 }
 ```
 
-Array order is source priority (§4.4). Tokens never appear here.
+Array order is source priority (§4.4). A source without an `id` gets
+`<type>-<index>`, which changes when you reorder the list and so forgets its
+token; set `id` on any source that signs in.
 
----
+## 17. Open items
 
-## 17. Known risks
-
-Status as implemented.
-
-1. **JFrog and Nexus adapters are fixture-verified, not live-verified.**
-   *Open.* Verdaccio has a real container test covering list → packument →
-   tarball → vsix. JFrog and Nexus are tested against recorded response
-   shapes only. Validate both against a real instance before announcing
-   support.
-2. **Install target in remote contexts.** *Open, and the one to resolve
-   first.* `workbench.extensions.installExtension` with a `Uri` under
-   `extensionKind: ["workspace","ui"]` has not been run in a real devcontainer
-   or code-server, so it is unproven that the extension lands on the intended
-   host. If it does not, §8 changes.
-3. **oxfmt is pre-1.0** (0.68.0). *Accepted.* Pinned exactly, as is oxlint.
-4. **Visual-diff flakiness.** *Handled.* Goldens are generated in the
-   Playwright container by `apps/webview/scripts/update-visual-goldens.sh`,
-   CI asserts inside that same image, and the pixel assertions skip elsewhere
-   with a message. `--check` re-verifies without rewriting.
-5. **Icon fetch cost** depends on publishers honoring §2.1 tarball ordering.
-   *Mitigated, still a dependency on publishers.* The streaming reader aborts
-   as soon as `icon.png` is complete; a test asserts a 525KB fixture costs
-   under 16KB. A wrongly-ordered tarball downloads in full rather than
-   breaking.
-6. **No search in v2.** *Deferred by choice.* The catalog is already fully
-   client-side, so a substring filter is roughly 15 lines.
-
-## 18. Implementation notes
-
-Where the build departed from, or went beyond, the sections above.
-
-- **CSP script-src carries a nonce *and* `webview.cspSource`** (§7.7 said
-  nonce only). A nonce does not propagate to statically imported ES modules,
-  and the entry bundles import a shared chunk. `localResourceRoots` confines
-  that origin to `dist/` and `globalStorage`, so nothing else is reachable
-  through it.
-- **Icons are published by the host** to `globalStorage/icons/<key>.png` and
-  handed to the webview as an `asWebviewUri`. The source's own cache key is
-  private to the source, so the host owns a path it can name.
-- **Typecheck is split** into `tsconfig.node.json` and `tsconfig.web.json`, so
-  host code cannot reach DOM globals and webview code cannot reach node ones.
-  `contract` is checked under both.
-- **The extension's workspace package is named `pvmp`**, not
-  `@pvmp/extension`: its `package.json` is the VS Code manifest, and vsce
-  rejects a scoped name.
-- **A bundle smoke test was added** (`apps/extension/bundle.integration.test.ts`).
-  It loads `dist/extension.cjs` with a stubbed `vscode`, activates it, and
-  asserts every command in the manifest is registered. It is a partial,
-  much cheaper stand-in for the `@vscode/test-cli` layer §13 skips.
-- **Production builds emit no sourcemap.** vsce's ignore rules did not
-  reliably exclude a re-included path, so the map is simply not produced;
-  `pnpm --filter pvmp watch` still emits one.
-- **Containers in tests go through testcontainers**, not `docker` CLI calls.
-  The first cut used `docker run --rm --detach`, which leaks: `--rm` fires
-  when a container stops, and Verdaccio never stops on its own, so a Ctrl-C
-  or a crash before teardown left it running indefinitely. testcontainers'
-  Ryuk sidecar reaps on connection loss, which was verified by SIGKILLing a
-  run mid-test. `update-visual-goldens.sh` stays a shell script with a
-  `trap EXIT`: it is a tool a person runs, not a test, and driving it through
-  testcontainers would need the workspace installed to install the workspace.
-
-## 19. Sequencing
-
----
-
-1. ~~Orphan branch, pnpm workspace skeleton, tooling, CI.~~ done
-2. ~~`contract` + IPC transport + its unit tests.~~ done
-3. ~~`core`: tarball reader, semver resolution, cache.~~ done
-4. ~~`source-local` + watcher.~~ done
-5. ~~Webview shell, Tailwind v4 theme port, mock host, Playwright.~~ done
-6. ~~Sidebar to pixel spec + visual goldens.~~ done
-7. ~~Details panel to pixel spec, markdown + CSP.~~ done
-8. ~~`source-npm` + Verdaccio adapter + live integration test.~~ done
-9. ~~JFrog and Nexus adapters + fixtures.~~ done
-10. ~~Install/update/uninstall orchestration, globalState, error banner.~~ done
-11. ~~Release pipeline, docs, format specification.~~ done
-
-Remaining before a release: resolve risk 2 in a real devcontainer and
-code-server, and validate the JFrog and Nexus adapters against real
-instances (risk 1).
+1. **Remote install placement is unverified.** Nobody has run an install in a
+   real devcontainer or code-server to confirm it lands on the remote side.
+   Until 2026-10-01 the manifest listed `["ui", "workspace"]`, the reverse of
+   §8, so earlier manual testing proves nothing. Resolve this first.
+2. **JFrog and Nexus are tested only against recorded responses.** Validate
+   both against real instances before announcing support.
+3. **Local folders are not watched.** `LocalSource.watch()` and the host's
+   `FileSystemWatcher` hook exist but nothing connects them, so a new `.tgz`
+   appears after the next refresh.
+4. **Relative image paths in READMEs do not load.** Only `https:` and `data:`
+   images render. Serving package-relative images would mean extracting them
+   into the cache.
+5. **No search or filtering.** Deferred to 3.0. The catalog is already in the
+   webview, so a text filter is small.
+6. **oxfmt is pre-1.0.** Accepted, and pinned.

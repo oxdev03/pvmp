@@ -10,11 +10,8 @@ export interface InstallFailure {
 }
 
 /**
- * Scratch state, in globalState rather than settings.
- *
- * v1 wrote its failed-update list into user settings, which conflates user
- * intent with bookkeeping and syncs the mess to every other machine
- * (SPEC.md §9). Settings hold only what the user chose.
+ * Bookkeeping in globalState. Settings hold only what you chose, and they
+ * sync to your other machines (SPEC.md §9).
  */
 export class ExtensionState {
   constructor(private readonly memento: vscode.Memento) {}
@@ -53,8 +50,7 @@ export class ExtensionState {
   async clearFailure(extensionId: string, version: string): Promise<void> {
     const failures = this.#failures();
     const key = `${extensionId}@${version}`;
-    // `delete` returns true even for a key that was never there, so it cannot
-    // stand in for the existence check.
+    // `delete` returns true for a missing key too, so check first.
     if (!(key in failures)) return;
     delete failures[key];
     await this.memento.update(FAILURES, failures);

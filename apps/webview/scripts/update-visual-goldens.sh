@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
-# Regenerates Playwright visual goldens inside the official Playwright
-# container, so they match what CI renders rather than what this laptop does.
-#
-# Font rasterisation differs between macOS and Linux by more than any sane
-# pixel threshold, so goldens produced on a developer machine would fail in CI
-# forever. Everyone regenerates through here (SPEC.md §7.3).
+# Regenerates the Playwright visual goldens inside the Playwright container,
+# which renders the same pixels as CI. Goldens made on macOS would never match
+# CI's fonts, so always regenerate through this script (SPEC.md §7.3).
 #
 #   ./scripts/update-visual-goldens.sh          # regenerate
 #   ./scripts/update-visual-goldens.sh --check  # compare, change nothing
@@ -27,8 +24,7 @@ docker create --name "${CONTAINER}" -w /work "${IMAGE}" sleep infinity >/dev/nul
 docker start "${CONTAINER}" >/dev/null
 
 echo "==> copying sources (excluding node_modules, dist)"
-# --others --exclude-standard so uncommitted work is included; .gitignore
-# already excludes node_modules and dist.
+# --others --exclude-standard includes uncommitted files but not ignored ones.
 git -C "${REPO_ROOT}" ls-files -z --cached --others --exclude-standard \
   | tar --null -T - -cf - -C "${REPO_ROOT}" \
   | docker cp - "${CONTAINER}:/work"

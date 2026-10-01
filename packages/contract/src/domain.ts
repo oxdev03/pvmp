@@ -1,8 +1,8 @@
 /**
  * Domain types shared by the extension host and the webview.
  *
- * Everything here must be structured-clone safe: it crosses `postMessage`.
- * No `Date`, no `Map`, no class instances — ISO strings and plain objects.
+ * These cross `postMessage`, so they must survive structured clone: ISO
+ * strings and plain objects, never `Date`, `Map` or class instances.
  */
 
 /** VS Code's `targetPlatform` values, plus `universal` for platform-agnostic builds. */
@@ -58,8 +58,8 @@ export interface ExtensionVersion {
 export interface InstalledInfo {
   version: string;
   /**
-   * True when VS Code reports this extension installed but no configured
-   * source offers that version — e.g. it came from the public marketplace.
+   * Installed, but no configured source offers this version. Usually it came
+   * from the public Marketplace.
    */
   external: boolean;
 }
@@ -108,26 +108,18 @@ export interface ExtensionLinks {
 export interface ExtensionDetails {
   entry: CatalogEntry;
   selectedVersion: string;
-  /** Raw markdown. Rendered and sanitized in the webview — see SPEC.md §7.7. */
+  /** Raw markdown; the webview renders and sanitizes it (SPEC.md §7.7). */
   readme?: string;
   changelog?: string;
   links: ExtensionLinks;
 }
 
-export type InstallPhase =
-  | 'queued'
-  | 'downloading'
-  | 'extracting'
-  | 'installing'
-  | 'done'
-  | 'failed';
+export type InstallPhase = 'downloading' | 'extracting' | 'installing' | 'done' | 'failed';
 
 export interface InstallProgress {
   extensionId: string;
   version: string;
   phase: InstallPhase;
-  /** 0..1 when the source reports a content length. */
-  pct?: number;
   message?: string;
 }
 

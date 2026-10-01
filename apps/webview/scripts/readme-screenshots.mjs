@@ -2,14 +2,14 @@
 /**
  * README screenshots of the real extension in real VS Code.
  *
- * Runs code-server in Docker with the packaged pvmp.vsix and the sample
- * packages as a local source, then drives the workbench with Playwright.
- * Not the webview harness: these show the actual extension host, IPC, CSP
- * and theme, which is the point of a README screenshot.
+ * Runs code-server in Docker with the packaged pvmp.vsix and the samples as a
+ * local source, then drives the workbench with Playwright. Unlike the dev
+ * harness, this exercises the real extension host, IPC, CSP and theme.
  *
  * Prerequisites (the root `pnpm screenshots` script runs both):
  *   pnpm samples && pnpm package
  */
+/* oxlint-disable no-await-in-loop -- retry and polling loops wait on purpose */
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -31,8 +31,8 @@ for (const required of ['pvmp.vsix', '.samples']) {
 }
 
 /**
- * The samples' vsix files are deliberately not installable. These two are,
- * so the sidebar can show an installed extension and an available update.
+ * The samples' vsix files cannot be installed. These two can, so the sidebar
+ * shows an installed extension and an available update.
  */
 function realVsix(dir, publisher, name, version) {
   const stage = mkdtempSync(join(tmpdir(), 'vsix-'));
@@ -83,10 +83,10 @@ function settings(extra) {
     'security.workspace.trust.enabled': false,
     'telemetry.telemetryLevel': 'off',
     'extensions.ignoreRecommendations': true,
-    // Not ours, and it would take a third of the frame.
+    // VS Code's chat panel would take a third of the frame.
     'chat.disableAIFeatures': true,
     'workbench.secondarySideBar.defaultVisibility': 'hidden',
-    // Also carries the host's keyboard layout, which is nobody's business.
+    // The status bar shows this machine's keyboard layout.
     'workbench.statusBar.visible': false,
     'pvmp.checkInterval': 0,
     'pvmp.sources': [{ type: 'local', id: 'samples', path: '/samples' }],
@@ -145,14 +145,14 @@ async function webviewFrame(page, selector) {
   throw new Error(`no webview rendered ${selector}`);
 }
 
-/** Every <img> in the frame has decoded, so no icon is caught mid-load. */
+/** Waits until every <img> in the frame has decoded. */
 async function iconsLoaded(frame) {
   await frame.waitForFunction(() =>
     [...document.images].every((image) => image.complete && image.naturalWidth > 0),
   );
 }
 
-/** Loads the workbench fresh, so it starts from the settings just written. */
+/** Reloads the workbench, which picks up the settings just written. */
 async function openMarketplace(page, url) {
   for (let attempt = 0; ; attempt++) {
     try {
@@ -198,7 +198,7 @@ try {
   await openDetails(page);
   await page.screenshot({ path: join(OUT, 'overview-light.png') });
 
-  // A second source that cannot be reached, to show per-source failure.
+  // Add an unreachable second source to show its error banner.
   writeSettings({
     'pvmp.sources': [
       { type: 'local', id: 'samples', path: '/samples' },

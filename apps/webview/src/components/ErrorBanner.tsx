@@ -8,10 +8,7 @@ export interface ErrorBannerProps {
   onShowLog: () => void;
 }
 
-/**
- * One banner for every source failure (SPEC.md §7.4). 401 additionally offers
- * sign-in, because that is the one failure a click can fix.
- */
+/** One banner per failing source (SPEC.md §7.4). Auth failures also offer sign-in. */
 export function ErrorBanner({ error, onSignIn, onShowLog }: ErrorBannerProps) {
   return (
     <div

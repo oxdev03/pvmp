@@ -79,8 +79,8 @@ describe('ipc request/response', () => {
 });
 
 describe('ipc method resolution is not a property lookup', () => {
-  // Method names arrive from the webview. Anything not an own function of the
-  // impl must be unreachable, or a webview could reach Object.prototype.
+  // Method names come from the webview. Only the impl's own functions may be
+  // callable, or a webview could reach Object.prototype.
   it.each(['__proto__', 'constructor', 'toString', 'hasOwnProperty'])(
     'rejects %s',
     async (name) => {

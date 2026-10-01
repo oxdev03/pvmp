@@ -3,7 +3,7 @@
   "displayName": "Private Marketplace",
   "version": "2.0.0",
   "private": true,
-  "description": "Private VS Code extension marketplace for corporate environments",
+  "description": "Install and update extensions from your own npm registry or a folder of packages",
   "categories": [
     "Other"
   ],
@@ -149,7 +149,7 @@
           "type": "array",
           "default": [],
           "order": 0,
-          "markdownDescription": "Where extensions come from, in priority order: when two sources offer the same version, the earlier one wins.\n\nTokens are never stored here — use **Private Marketplace: Sign in to Source**.",
+          "markdownDescription": "Where extensions come from, in priority order: when two sources offer the same version, the earlier one wins.\n\nStore tokens with **Private Marketplace: Sign in to Source**, not here.",
           "items": {
             "type": "object",
             "required": [

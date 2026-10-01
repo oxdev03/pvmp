@@ -1,11 +1,9 @@
 import type { FileStore } from './filestore.ts';
 
-export type CacheKind = 'meta' | 'readme' | 'changelog' | 'icon';
+export type CacheKind = 'meta' | 'icon';
 
 const EXTENSION: Record<CacheKind, string> = {
   meta: 'json',
-  readme: 'md',
-  changelog: 'md',
   icon: 'png',
 };
 
@@ -17,10 +15,9 @@ const encodeChar = (char: string): string => {
 /**
  * Makes a cache key safe to use as a single path segment.
  *
- * Keys are built from registry-supplied package names and versions, so this is
- * a trust boundary. Percent-encoding everything outside a strict allowlist
- * removes the separators; encoding a leading dot additionally rules out the
- * two segments that would still traverse on their own, `.` and `..`.
+ * Keys contain registry-supplied names and versions, so this is a trust
+ * boundary. Percent-encoding everything outside the allowlist removes path
+ * separators, and encoding a leading dot rules out `.` and `..`.
  */
 export function encodeCacheKey(key: string): string {
   const encoded = key.replace(/[^A-Za-z0-9._-]/g, encodeChar);
@@ -29,21 +26,18 @@ export function encodeCacheKey(key: string): string {
 
 interface IndexEntry {
   size: number;
-  /**
-   * Monotonic access counter, not a timestamp. `Date.now()` has millisecond
-   * resolution, so several puts in the same tick would be unorderable and LRU
-   * eviction would pick arbitrarily.
-   */
+  /** Access order for LRU. A counter, because Date.now() ties within a millisecond. */
   seq: number;
 }
 
 const INDEX_PATH = 'index.json';
 
 /**
- * Content-addressed blob cache with LRU eviction (SPEC.md §6).
+ * Blob cache with LRU eviction (SPEC.md §6).
  *
- * Callers choose the key: sha/integrity for remote packages, path+mtime+size
- * for local files. The cache itself never decides what is stale.
+ * The cache never decides what is stale. Callers build keys that change when
+ * the content does: source, name and version for npm; path, mtime and size
+ * for local files.
  */
 export class BlobCache {
   #index = new Map<string, IndexEntry>();
@@ -116,15 +110,6 @@ export class BlobCache {
     await this.put('meta', key, new TextEncoder().encode(JSON.stringify(value)));
   }
 
-  async getText(kind: CacheKind, key: string): Promise<string | undefined> {
-    const data = await this.get(kind, key);
-    return data ? new TextDecoder().decode(data) : undefined;
-  }
-
-  async putText(kind: CacheKind, key: string, text: string): Promise<void> {
-    await this.put(kind, key, new TextEncoder().encode(text));
-  }
-
   get totalBytes(): number {
     let total = 0;
     for (const entry of this.#index.values()) total += entry.size;
@@ -132,21 +117,20 @@ export class BlobCache {
   }
 
   /**
-   * Reconciles the index with what is actually on disk.
+   * Brings the index in line with the disk.
    *
-   * The index is an optimisation, not the source of truth. It is only
-   * persisted by flush(), so a session that ends without one leaves blobs the
-   * next run cannot see — and an unseen blob is never evicted, which made the
-   * cache grow without bound. Anything on disk but unindexed is adopted as
-   * least-recently-used; anything indexed but gone is dropped.
+   * Only flush() persists the index, so a session that ends without one
+   * leaves blobs the next session cannot see, and prune would never evict
+   * them. Unindexed files are adopted as least recently used; index entries
+   * whose file is gone are dropped.
    */
   async #reconcile(): Promise<void> {
     await this.#load();
 
-    // Snapshotted before the listing: anything added to the index while the
-    // listing is in flight (refresh() emits catalogChanged, so the webview's
-    // getIcon puts race prune by construction) is newer than what we are
-    // looking at and must not be treated as missing from disk.
+    // Taken before listing. refresh() emits catalogChanged just before it
+    // prunes, so webview icon puts land while the listing runs; a path
+    // indexed after this point is new, and its absence from the listing
+    // proves nothing.
     const known = new Set(this.#index.keys());
 
     const kinds = Object.keys(EXTENSION) as CacheKind[];
@@ -199,8 +183,8 @@ export class BlobCache {
 
   async flush(): Promise<void> {
     if (!this.#dirty) return;
-    // Cleared up front so a put during the write is not swallowed, and put
-    // back on failure so the index stays retryable rather than silently lost.
+    // Cleared first so a put during the write marks it dirty again, and
+    // restored on failure so the next flush retries.
     this.#dirty = false;
     const payload = Object.fromEntries(this.#index);
     try {
