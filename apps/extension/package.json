@@ -251,8 +251,8 @@
     "onStartupFinished"
   ],
   "extensionKind": [
-    "ui",
-    "workspace"
+    "workspace",
+    "ui"
   ],
   "icon": "media/icon.png",
   "engines": {
