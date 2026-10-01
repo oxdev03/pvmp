@@ -44,6 +44,7 @@ function serve(webview: vscode.Webview, deps: HostApiDeps, hub: WebviewHub): vsc
 /** The activity-bar list. Replaces v1's TreeView entirely (SPEC.md §7.1). */
 export class MarketplaceViewProvider implements vscode.WebviewViewProvider {
   #view: vscode.WebviewView | undefined;
+  #badge = 0;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -51,8 +52,14 @@ export class MarketplaceViewProvider implements vscode.WebviewViewProvider {
     private readonly hub: WebviewHub,
   ) {}
 
-  /** The activity-bar badge counting available updates. */
+  /**
+   * The activity-bar badge counting available updates.
+   *
+   * Remembered, because the first refresh usually finishes before VS Code
+   * resolves the view, and a badge set on no view was simply lost.
+   */
   setBadge(count: number): void {
+    this.#badge = count;
     if (!this.#view) return;
     this.#view.badge =
       count > 0 ? { value: count, tooltip: `${count} update(s) available` } : undefined;
@@ -60,6 +67,7 @@ export class MarketplaceViewProvider implements vscode.WebviewViewProvider {
 
   resolveWebviewView(view: vscode.WebviewView): void {
     this.#view = view;
+    this.setBadge(this.#badge);
     view.webview.options = webviewOptions(this.extensionUri, this.deps.storage);
     view.webview.html = buildWebviewHtml({
       webview: view.webview,
@@ -118,7 +126,7 @@ export class DetailsPanel {
     private readonly panel: vscode.WebviewPanel,
     private extensionId: string,
     private readonly extensionUri: vscode.Uri,
-    deps: HostApiDeps,
+    private readonly deps: HostApiDeps,
     hub: WebviewHub,
   ) {
     this.render();
@@ -137,6 +145,7 @@ export class DetailsPanel {
 
   private render(): void {
     this.panel.title = this.extensionId;
+    void this.#retitle(this.extensionId);
     this.panel.webview.html = buildWebviewHtml({
       webview: this.panel.webview,
       extensionUri: this.extensionUri,
@@ -144,5 +153,19 @@ export class DetailsPanel {
       title: this.extensionId,
       rootData: { [ROOT_EXTENSION_ID_ATTRIBUTE]: this.extensionId },
     });
+  }
+
+  /** "Extension: Corp Lint", as VS Code titles its own extension editor. */
+  async #retitle(extensionId: string): Promise<void> {
+    try {
+      const { entries } = await this.deps.catalog.snapshot();
+      const entry = entries.find((candidate) => candidate.extensionId === extensionId);
+      // Retargeted while the catalog loaded: that render owns the title now.
+      if (entry && this.extensionId === extensionId) {
+        this.panel.title = `Extension: ${entry.displayName}`;
+      }
+    } catch {
+      // The id is already the title; a failed catalog is reported elsewhere.
+    }
   }
 }

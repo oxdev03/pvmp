@@ -64,7 +64,7 @@
       "pvmp": [
         {
           "id": "pvmp.marketplace",
-          "name": "Extensions",
+          "name": "Private Marketplace",
           "type": "webview",
           "icon": "media/marketplace.svg"
         }
