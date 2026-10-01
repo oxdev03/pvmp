@@ -18,7 +18,8 @@
     "package": "pnpm build && pnpm --filter pvmp package",
     "changeset": "changeset",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "samples": "node packages/core/scripts/make-samples.mjs"
+    "samples": "node packages/core/scripts/make-samples.mjs",
+    "screenshots": "pnpm samples && pnpm package && node apps/webview/scripts/readme-screenshots.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",
