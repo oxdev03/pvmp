@@ -7,6 +7,7 @@ import { createTransportPair } from './testing.ts';
 
 interface TestApi extends ApiShape {
   add(a: number, b: number): Promise<number>;
+  optional(a: string, b?: string): Promise<string>;
   boom(): Promise<never>;
   never(): Promise<void>;
 }
@@ -18,6 +19,7 @@ interface TestEvents extends EventMap {
 function setup(overrides: Partial<TestApi> = {}, timeoutMs = 30_000) {
   const impl: TestApi = {
     add: (a, b) => Promise.resolve(a + b),
+    optional: (a, b) => Promise.resolve(`${a}:${b === undefined ? 'undefined' : String(b)}`),
     boom: () => {
       const error = new Error('kaboom');
       error.name = 'BoomError';
@@ -36,6 +38,13 @@ describe('ipc request/response', () => {
   it('round-trips a call and its arguments', async () => {
     const { client } = setup();
     await expect(client.api.add(2, 3)).resolves.toBe(5);
+  });
+
+  it('delivers an omitted optional argument as undefined, not null', async () => {
+    // JSON, which VS Code uses for webview messages, writes undefined as null.
+    const { client } = setup();
+    await expect(client.api.optional('a')).resolves.toBe('a:undefined');
+    await expect(client.api.optional('a', undefined)).resolves.toBe('a:undefined');
   });
 
   it('keeps concurrent requests distinct', async () => {
@@ -66,6 +75,7 @@ describe('ipc request/response', () => {
     serveIpc<TestApi, TestEvents>(
       {
         add: () => Promise.reject(new Error('x')),
+        optional: () => Promise.reject(new Error('x')),
         boom: () => Promise.reject(new Error('x')),
         never: () => Promise.resolve(),
       },

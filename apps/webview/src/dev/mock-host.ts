@@ -27,13 +27,16 @@ declare global {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** VS Code JSON-serializes webview messages in both directions. */
+const viaJson = (message: unknown): unknown => JSON.parse(JSON.stringify(message));
+
 /**
  * Installs a fake extension host.
  *
  * It replaces `window.acquireVsCodeApi`, so the app's IPC code runs
- * unchanged: request ids, timeouts, events, and the structured clone of
- * `window.postMessage`. A payload the real bridge cannot carry fails here
- * too (SPEC.md §13.1).
+ * unchanged: request ids, timeouts, events, and the JSON serialization VS
+ * Code applies to every message. A payload the real bridge cannot carry
+ * fails here too (SPEC.md §13.1).
  */
 export function installMockHost(scenarioName: ScenarioName = 'default'): MockControl {
   const scenario: Scenario = buildScenario(scenarioName);
@@ -43,7 +46,7 @@ export function installMockHost(scenarioName: ScenarioName = 'default'): MockCon
   // webview -> host
   let toHost: ((message: unknown) => void) | undefined;
   window.acquireVsCodeApi = () => ({
-    postMessage: (message) => toHost?.(message),
+    postMessage: (message) => toHost?.(viaJson(message)),
     getState: () => state,
     setState: (next) => {
       state = next;
@@ -52,7 +55,7 @@ export function installMockHost(scenarioName: ScenarioName = 'default'): MockCon
 
   // host -> webview, over the same window message channel the real bridge reads.
   const hostTransport: Transport = {
-    post: (message) => window.postMessage(message, '*'),
+    post: (message) => window.postMessage(viaJson(message), '*'),
     subscribe(handler) {
       toHost = (message) => {
         if (typeof message === 'object' && message !== null && 'method' in message) {

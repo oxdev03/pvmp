@@ -1,8 +1,9 @@
 /**
  * Domain types shared by the extension host and the webview.
  *
- * These cross `postMessage`, so they must survive structured clone: ISO
- * strings and plain objects, never `Date`, `Map` or class instances.
+ * These cross `postMessage`, which VS Code serializes as JSON: ISO strings
+ * and plain objects, never `Date`, `Map` or class instances. An undefined
+ * property vanishes, and an undefined array element becomes null.
  */
 
 /** VS Code's `targetPlatform` values, plus `universal` for platform-agnostic builds. */

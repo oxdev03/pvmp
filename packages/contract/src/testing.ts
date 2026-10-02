@@ -2,7 +2,8 @@ import type { Transport } from './protocol.ts';
 
 /**
  * A pair of transports wired to each other, delivering asynchronously so tests
- * exercise the same ordering the real `postMessage` bridge has.
+ * exercise the same ordering the real `postMessage` bridge has, and through
+ * JSON, as VS Code serializes webview messages.
  */
 export function createTransportPair(): { a: Transport; b: Transport } {
   const handlers: { a: Set<(m: unknown) => void>; b: Set<(m: unknown) => void> } = {
@@ -12,8 +13,9 @@ export function createTransportPair(): { a: Transport; b: Transport } {
 
   const make = (self: 'a' | 'b', peer: 'a' | 'b'): Transport => ({
     post(message) {
+      const delivered: unknown = JSON.parse(JSON.stringify(message));
       queueMicrotask(() => {
-        for (const handler of Array.from(handlers[peer])) handler(message);
+        for (const handler of Array.from(handlers[peer])) handler(delivered);
       });
     },
     subscribe(handler) {

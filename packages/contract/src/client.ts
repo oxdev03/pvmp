@@ -73,6 +73,10 @@ export function createIpcClient<Api extends ApiShape, Events extends EventMap>(
 
   function call(method: string, args: unknown[]): Promise<unknown> {
     if (disposed) return Promise.reject(new IpcDisposedError());
+    // VS Code JSON-serializes webview messages, which turns an undefined
+    // argument into null. Trimming trailing ones keeps an omitted optional
+    // parameter undefined on the host.
+    while (args.length > 0 && args.at(-1) === undefined) args.pop();
     const id = nextId++;
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
