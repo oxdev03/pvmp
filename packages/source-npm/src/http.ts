@@ -42,6 +42,23 @@ export function redactUrl(url: string): string {
   }
 }
 
+/**
+ * Strips userinfo from every URL in free text. fetch's own errors quote the
+ * URL they were given, credentials included.
+ */
+function redactText(text: string): string {
+  return text.replace(/([a-z][\w+.-]*:\/\/)[^/\s@]+@/gi, '$1');
+}
+
+/** True when both URLs share scheme, host and port. */
+export function sameOrigin(a: string, b: string): boolean {
+  try {
+    return new URL(a).origin === new URL(b).origin;
+  } catch {
+    return false;
+  }
+}
+
 function headers(ctx: HttpContext, options: HttpOptions): Record<string, string> {
   const result: Record<string, string> = {
     accept: options.accept ?? 'application/json',
@@ -64,7 +81,7 @@ async function send(url: string, ctx: HttpContext, options: HttpOptions): Promis
     throw new SourceFailure(
       ctx.sourceId,
       'unreachable',
-      `Could not reach ${redactUrl(url)}: ${errorMessage(error)}`,
+      `Could not reach ${redactUrl(url)}: ${redactText(errorMessage(error))}`,
       error,
     );
   }

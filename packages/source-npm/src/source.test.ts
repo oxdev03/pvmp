@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { buildPvmpTarball, packageJsonFixture, PNG_MAGIC } from '@pvmp/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -11,7 +13,7 @@ const TARBALL = 'https://registry.corp/@corp/vsc-lint/-/vsc-lint-1.4.0.tgz';
 function manifest(version: string, overrides: Record<string, unknown> = {}) {
   return {
     ...packageJsonFixture({ version }),
-    dist: { tarball: TARBALL.replace('1.4.0', version), integrity: `sha512-${version}` },
+    dist: { tarball: TARBALL.replace('1.4.0', version) },
     ...overrides,
   };
 }
@@ -27,6 +29,8 @@ const tarball = buildPvmpTarball({
   icon: PNG_MAGIC,
   vsix: new Uint8Array([9, 9, 9]),
 });
+
+const sri = (bytes: Uint8Array) => `sha512-${createHash('sha512').update(bytes).digest('base64')}`;
 
 function source(deps = makeDeps()) {
   return new NpmSource(
@@ -119,6 +123,16 @@ describe('NpmSource.list', () => {
     expect(versions.map((v) => v.extensionId)).toEqual(['acme.lint']);
   });
 
+  it('fails the source when packuments need a sign-in the listing did not', async () => {
+    const { fetch } = stubFetch({
+      'https://registry.corp/-/all': { json: { '@corp/vsc-lint': {} } },
+      'https://registry.corp/@corp%2fvsc-lint': { status: 401 },
+    });
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(source().list()).rejects.toMatchObject({ kind: 'auth' });
+  });
+
   it('surfaces a 401 from the catalog listing as an auth failure', async () => {
     const { fetch } = stubFetch({
       'https://registry.corp/-/all': { status: 401 },
@@ -206,6 +220,57 @@ describe('NpmSource fetching', () => {
     expect(recorder.urls.length).toBe(afterFirst);
   });
 
+  const withIntegrity = (integrity: string) => ({
+    ...routes,
+    'https://registry.corp/@corp%2fvsc-lint': {
+      json: packument({
+        '1.4.0': manifest('1.4.0', { dist: { tarball: TARBALL, integrity } }),
+      }),
+    },
+  });
+
+  it('accepts a vsix whose tarball matches the published integrity', async () => {
+    vi.stubGlobal('fetch', stubFetch(withIntegrity(sri(tarball))).fetch);
+    const npm = source();
+    const [version] = await npm.list();
+    expect(await npm.fetchVsix(version!)).toEqual(new Uint8Array([9, 9, 9]));
+  });
+
+  it.each([
+    ['sha512', sri(new Uint8Array([1]))],
+    [
+      'legacy sha1 shasum',
+      createHash('sha1')
+        .update(new Uint8Array([1]))
+        .digest('hex'),
+    ],
+  ])('refuses to install a tarball that fails its %s integrity check', async (_, integrity) => {
+    vi.stubGlobal('fetch', stubFetch(withIntegrity(integrity)).fetch);
+    const npm = source();
+    const [version] = await npm.list();
+    await expect(npm.fetchVsix(version!)).rejects.toThrow(/does not match the integrity/);
+  });
+
+  it('sends the token to the registry but not to a tarball on another host', async () => {
+    const foreign = 'https://cdn.elsewhere/vsc-lint-1.4.0.tgz';
+    const { fetch, recorder } = stubFetch({
+      ...routes,
+      'https://registry.corp/@corp%2fvsc-lint': {
+        json: packument({ '1.4.0': manifest('1.4.0', { dist: { tarball: foreign } }) }),
+      },
+      [foreign]: { body: tarball },
+    });
+    vi.stubGlobal('fetch', fetch);
+
+    const npm = source(makeDeps('secret'));
+    const [version] = await npm.list();
+    await npm.fetchVsix(version!);
+
+    const auth = recorder.urls.map((url, i) => [url, recorder.headers[i]?.['authorization']]);
+    expect(auth).toContainEqual(['https://registry.corp/-/all', 'Bearer secret']);
+    expect(auth).toContainEqual([foreign, undefined]);
+  });
+
   it('reports a package with no extension.vsix clearly', async () => {
     vi.stubGlobal(
       'fetch',
@@ -246,6 +311,21 @@ describe('npmSourceFactory', () => {
         deps,
       ).id,
     ).toBe('b');
+  });
+
+  it('rejects credentials in the registry url without echoing them', () => {
+    expect(() =>
+      npmSourceFactory.create(
+        { type: 'npm', registry: 'https://alice:hunter2@registry.corp/', adapter: 'verdaccio' },
+        deps,
+      ),
+    ).toThrow(/must not contain credentials/);
+    expect(() =>
+      npmSourceFactory.create(
+        { type: 'npm', registry: 'https://alice:hunter2@registry.corp/', adapter: 'verdaccio' },
+        deps,
+      ),
+    ).not.toThrow(/hunter2/);
   });
 
   it('refuses to guess when the url shape says nothing', () => {
@@ -321,6 +401,20 @@ describe('credentials never reach logs or errors', () => {
     expect(messages.length).toBeGreaterThan(0);
     expect(messages.join('\n')).not.toContain('hunter2');
     expect(messages.join('\n')).not.toContain('alice');
+  });
+
+  it('strips userinfo that fetch quotes in its own error', async () => {
+    vi.stubGlobal('fetch', (input: string) =>
+      Promise.reject(
+        new TypeError(
+          `Request cannot be constructed from a URL that includes credentials: ${input}`,
+        ),
+      ),
+    );
+
+    await expect(credentialSource().list()).rejects.toSatisfy(
+      (error: Error) => !error.message.includes('hunter2') && error.message.includes('credentials'),
+    );
   });
 
   it('strips userinfo from the error the webview renders', async () => {

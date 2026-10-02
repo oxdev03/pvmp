@@ -20,9 +20,14 @@ import {
 import type { AdapterContext, CatalogAdapter } from './adapters/index.ts';
 import { CATALOG_ADAPTERS, detectAdapter } from './adapters/index.ts';
 import type { HttpContext } from './http.ts';
-import { getBytes, getJson, getStream, joinUrl, redactUrl } from './http.ts';
+import { getBytes, getJson, getStream, joinUrl, redactUrl, sameOrigin } from './http.ts';
 import type { Packument } from './packument.ts';
-import { encodePackageName, isPvmpPackage, packumentEntries } from './packument.ts';
+import {
+  encodePackageName,
+  isPvmpPackage,
+  matchesIntegrity,
+  packumentEntries,
+} from './packument.ts';
 
 export const NPM_SOURCE_TYPE = 'npm';
 
@@ -47,6 +52,9 @@ interface CachedPackument {
  * same way. Listing the catalog is the adapter's job (SPEC.md §3.2).
  */
 export class NpmSource implements SourceProvider {
+  /** Tarball URL to the integrity its packument published, filled by list(). */
+  readonly #integrity = new Map<string, string>();
+
   constructor(
     private readonly config: NpmSourceConfig,
     private readonly deps: SourceDeps,
@@ -62,6 +70,15 @@ export class NpmSource implements SourceProvider {
       log: this.deps.log,
       token: await this.deps.getToken(this.id),
     };
+  }
+
+  /**
+   * For tarball URLs, which the packument supplies. Like npm, pvmp sends the
+   * token only to the registry it was configured for, never to another host.
+   */
+  async #tarballHttp(url: string): Promise<HttpContext> {
+    const http = await this.#http();
+    return sameOrigin(url, this.config.registry) ? http : { ...http, token: undefined };
   }
 
   async list(): Promise<ExtensionVersion[]> {
@@ -92,6 +109,9 @@ export class NpmSource implements SourceProvider {
         try {
           return await this.#versionsOf(name, http);
         } catch (error) {
+          // A missing sign-in fails every package alike; report it once, with
+          // the banner's Sign in button, rather than as an empty catalog.
+          if (error instanceof SourceFailure && error.kind === 'auth') throw error;
           this.deps.log.warn(`[${this.id}] skipping ${name}: ${String(error)}`);
           return [];
         }
@@ -107,6 +127,7 @@ export class NpmSource implements SourceProvider {
 
     for (const entry of packumentEntries(packument)) {
       if (!isPvmpPackage(entry.manifest)) continue;
+      if (entry.integrity) this.#integrity.set(entry.tarball, entry.integrity);
       try {
         versions.push(
           toExtensionVersion(entry.manifest, {
@@ -153,7 +174,7 @@ export class NpmSource implements SourceProvider {
     const cached = await this.deps.cache.getJson<ExtensionDetailContent>(`details:${key}`);
     if (cached) return cached;
 
-    const http = await this.#http();
+    const http = await this.#tarballHttp(version.locator);
     const tarball = readPvmpTarball(await getBytes(version.locator, http), version.locator);
     const content = await extractContent(tarball, this.deps.cache, key);
     await this.deps.cache.putJson(`details:${key}`, content);
@@ -168,7 +189,7 @@ export class NpmSource implements SourceProvider {
     // Streams the tarball and aborts once icon.png is complete: a few KB for a
     // package in SPEC.md §2.1 order, the full download for any other.
     const abort = new AbortController();
-    const http = await this.#http();
+    const http = await this.#tarballHttp(version.locator);
 
     let icon: Uint8Array | undefined;
     try {
@@ -187,8 +208,16 @@ export class NpmSource implements SourceProvider {
   }
 
   async fetchVsix(version: ExtensionVersion): Promise<Uint8Array> {
-    const http = await this.#http();
-    return readVsix(await getBytes(version.locator, http), version.locator);
+    const bytes = await getBytes(version.locator, await this.#tarballHttp(version.locator));
+    const integrity = this.#integrity.get(version.locator);
+    if (integrity && !(await matchesIntegrity(bytes, integrity))) {
+      throw new SourceFailure(
+        this.id,
+        'parse',
+        `${redactUrl(version.locator)} does not match the integrity hash its registry published`,
+      );
+    }
+    return readVsix(bytes, version.locator);
   }
 
   #key(version: ExtensionVersion): string {
@@ -205,6 +234,14 @@ export const npmSourceFactory: SourceFactory = {
 
     const registry = nonEmptyString(config.registry);
     if (!registry) throw new SourceFailure(id, 'config', 'npm source requires a "registry" URL');
+    // fetch rejects such URLs outright, and settings are no place for secrets.
+    if (redactUrl(registry) !== registry) {
+      throw new SourceFailure(
+        id,
+        'config',
+        `"registry" must not contain credentials. Remove them from ${redactUrl(registry)} and use Sign in to Source.`,
+      );
+    }
 
     const requested = nonEmptyString(config.adapter);
     const named = requested ? CATALOG_ADAPTERS[requested] : undefined;

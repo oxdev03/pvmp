@@ -201,7 +201,30 @@ describe('verdaccioAdapter', () => {
 
     const names = await verdaccioAdapter.listPackages(ctx());
     expect(names).toEqual(['@corp/vsc-lint']);
-    expect(recorder.urls[1]).toContain('/-/v1/search');
+    // Unqualified: Verdaccio ignores keywords: and scope: (checked against 5 and 6).
+    expect(recorder.urls[1]).toContain('/-/v1/search?text=&');
+  });
+
+  it('suggests sign-in when an anonymous listing comes back empty', async () => {
+    const { fetch } = stubFetch({
+      // What Verdaccio returns to an anonymous client for a private registry.
+      'https://registry.corp/-/all': { json: { _updated: 99_999 } },
+      'https://registry.corp/-/v1/search': { json: { objects: [] } },
+    });
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(verdaccioAdapter.listPackages(ctx())).rejects.toMatchObject({ kind: 'auth' });
+  });
+
+  it('accepts an empty listing once signed in', async () => {
+    const { fetch } = stubFetch({
+      'https://registry.corp/-/all': { json: { _updated: 99_999 } },
+      'https://registry.corp/-/v1/search': { json: { objects: [] } },
+    });
+    vi.stubGlobal('fetch', fetch);
+
+    const signedIn = ctx({ http: { sourceId: 'corp', log: silentLog, token: 't' } });
+    expect(await verdaccioAdapter.listPackages(signedIn)).toEqual([]);
   });
 
   it('filters /-/all by scope and drops metadata keys', async () => {

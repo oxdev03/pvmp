@@ -1,4 +1,6 @@
-import { getJson, joinUrl } from '../http.ts';
+import { SourceFailure } from '@pvmp/core';
+
+import { getJson, joinUrl, redactUrl } from '../http.ts';
 import type { AdapterContext, CatalogAdapter } from './types.ts';
 import { matchesScope } from './types.ts';
 
@@ -20,9 +22,17 @@ export const verdaccioAdapter: CatalogAdapter = {
   id: 'verdaccio',
 
   async listPackages(ctx: AdapterContext): Promise<string[]> {
-    const fromAll = await listViaAll(ctx);
-    if (fromAll) return fromAll;
-    return listViaSearch(ctx);
+    const names = (await listViaAll(ctx)) ?? (await listViaSearch(ctx));
+    // Verdaccio answers an anonymous listing of a private registry with an
+    // empty 200, not a 401, so this is the only sign that a token is missing.
+    if (names.length === 0 && !ctx.http.token) {
+      throw new SourceFailure(
+        ctx.sourceId,
+        'auth',
+        `${redactUrl(ctx.registry)} listed no packages. If it requires sign-in, sign in to see them.`,
+      );
+    }
+    return names;
   },
 };
 
@@ -44,15 +54,16 @@ async function listViaAll(ctx: AdapterContext): Promise<string[] | undefined> {
   }
 }
 
+/**
+ * An empty `text` lists every local package. Verdaccio 5 and 6 ignore the
+ * `keywords:` and `scope:` qualifiers, so a qualified query finds nothing,
+ * and Verdaccio 5 merges npmjs.org results into any non-empty query.
+ */
 async function listViaSearch(ctx: AdapterContext): Promise<string[]> {
   const names: string[] = [];
-  const text = ctx.scope ? `scope:${ctx.scope.replace('@', '')}` : 'keywords:vscode-extension';
 
   for (let from = 0; ; from += PAGE_SIZE) {
-    const url = joinUrl(
-      ctx.registry,
-      `-/v1/search?text=${encodeURIComponent(text)}&size=${PAGE_SIZE}&from=${from}`,
-    );
+    const url = joinUrl(ctx.registry, `-/v1/search?text=&size=${PAGE_SIZE}&from=${from}`);
     // oxlint-disable-next-line no-await-in-loop -- `from` depends on the previous page
     const { value } = await getJson<SearchResponse>(url, ctx.http);
 

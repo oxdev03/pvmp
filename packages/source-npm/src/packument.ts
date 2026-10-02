@@ -58,6 +58,42 @@ export function isPvmpPackage(manifest: PackumentVersion): boolean {
   return isRecord(manifest.pvmp);
 }
 
+const DIGESTS: Record<string, string> = {
+  sha1: 'SHA-1',
+  sha256: 'SHA-256',
+  sha384: 'SHA-384',
+  sha512: 'SHA-512',
+};
+
+async function digest(algorithm: string, bytes: Uint8Array): Promise<Uint8Array> {
+  return new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
+}
+
+/**
+ * Checks a download against the packument's `dist.integrity` (SRI, such as
+ * `sha512-<base64>`) or legacy `dist.shasum` (hex SHA-1). Every hash with a
+ * known algorithm must match. A value with none passes, because there is
+ * nothing to check against.
+ */
+export async function matchesIntegrity(bytes: Uint8Array, integrity: string): Promise<boolean> {
+  if (/^[\da-f]{40}$/i.test(integrity)) {
+    const hex = Array.from(await digest('SHA-1', bytes), (b) => b.toString(16).padStart(2, '0'));
+    return hex.join('') === integrity.toLowerCase();
+  }
+
+  for (const hash of integrity.trim().split(/\s+/)) {
+    const dash = hash.indexOf('-');
+    const algorithm = DIGESTS[hash.slice(0, dash)];
+    if (dash === -1 || !algorithm) continue;
+    // Drops SRI options such as `?foo`, which follow the base64.
+    const expected = hash.slice(dash + 1).split('?')[0];
+    // oxlint-disable-next-line no-await-in-loop -- usually exactly one hash
+    const actual = btoa(String.fromCharCode(...(await digest(algorithm, bytes))));
+    if (actual !== expected) return false;
+  }
+  return true;
+}
+
 /** npm requires the scope separator to be percent-encoded in a path. */
 export function encodePackageName(name: string): string {
   return name.replace('/', '%2f');
