@@ -62,8 +62,7 @@ never opens `extension.vsixmanifest`, so it only knows what you put here.
 | `version`                   | yes         | Valid semver, the same as the vsix.                             |
 | `engines.vscode`            | recommended | Hides the version from older VS Code. Defaults to `*`.          |
 | `categories`                | recommended | Shown on the details page.                                      |
-| `keywords`                  | recommended | Verdaccio's search fallback finds `vscode-extension`.           |
-| `pvmp.extensionId`          | **yes**     | `publisher.name`, exactly as VS Code knows it.                  |
+| `pvmp.extensionId`          | **yes**     | `publisher.name` as VS Code knows it. Case does not matter.     |
 | `pvmp.displayName`          | **yes**     | Shown in the list and on the details page.                      |
 | `pvmp.publisherDisplayName` | recommended | Defaults to the publisher part of the id.                       |
 | `pvmp.targetPlatform`       | no          | `universal` (the default) or a VS Code target like `linux-x64`. |

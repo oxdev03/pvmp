@@ -49,7 +49,8 @@ the ones that otherwise live only in `extension.vsixmanifest`:
 
 pvmp never parses `extension.vsixmanifest`. A packument already contains
 every version's `package.json`, so the catalog needs no tarball and no XML.
-Packages without a `pvmp` block are ignored.
+Packages without a `pvmp` block are ignored. Extension ids compare
+case-insensitively, as in VS Code, so pvmp lowercases `pvmp.extensionId`.
 
 [`docs/publishing.md`](docs/publishing.md) is the publisher-facing version of
 this section.
@@ -139,7 +140,10 @@ portable way to do that. Both sources read packages with the same
 pvmp scans breadth-first for `*.tgz`, `depth` levels deep (default 3),
 skipping `node_modules`, `.git`, `.svn`, `.hg` and `.cache`. Cached metadata is
 keyed by path, mtime and size, so editing a file re-reads it. The file's mtime
-stands in for a publish date.
+stands in for a publish date. A scan reads uncached packages four at a time,
+because each is read and inflated whole. A package pvmp cannot read is
+skipped with a warning in the log, and a folder that does not exist is a
+configuration error rather than an empty catalog.
 
 Paths accept `${userHome}`, `${workspaceFolder}` and `${env:NAME}`. The
 resolved path is logged, because in a remote window it refers to the remote
@@ -155,7 +159,7 @@ machine (§8).
 
 | `adapter`   | Lists packages with                                 | Tested against              |
 | ----------- | --------------------------------------------------- | --------------------------- |
-| `verdaccio` | `/-/all`, falling back to `/-/v1/search`            | A live Verdaccio container  |
+| `verdaccio` | `/-/all`, falling back to `/-/v1/search?text=`      | A live Verdaccio container  |
 | `jfrog`     | `GET /api/storage/<repo>?list&deep=1`               | Recorded responses only     |
 | `nexus`     | `GET /service/rest/v1/components?repository=<repo>` | Recorded responses only     |
 
@@ -164,6 +168,15 @@ Without an `adapter` setting, a registry URL containing `/api/npm/` selects
 configuration error, because the wrong listing API would produce an empty
 catalog with no visible cause. `repo` and `baseUrl` override the values
 derived from the URL. `scope` restricts the catalog to one npm scope.
+
+Verdaccio 5 and 6 ignore the `keywords:` and `scope:` search qualifiers, so
+the search fallback sends an empty query and filters by scope itself. They
+also answer an anonymous listing of a private registry with an empty 200, so
+an empty listing without a token becomes an `auth` error that offers
+sign-in (§4.3).
+
+A tarball is verified against the packument's `dist.integrity` (or legacy
+`dist.shasum`) before it installs.
 
 The Verdaccio test publishes a package containing a real vsix, then lists,
 fetches the packument and tarball, and extracts the vsix. That also covers
@@ -176,11 +189,17 @@ under `pvmp.token.<sourceId>` and sent as `Authorization: Bearer <token>`.
 **Private Marketplace: Sign in to Source** asks for it; submitting an empty
 token deletes it. pvmp does not read `.npmrc`.
 
-Settings sync between machines, so tokens never go there. Error messages and
-log lines strip userinfo from URLs, so a registry configured as
-`https://user:pass@host/` does not leak its password into the error banner.
+Settings sync between machines, so tokens never go there. A registry URL
+with userinfo (`https://user:pass@host/`) is a configuration error: fetch
+rejects such URLs, and settings are no place for a password. Error messages
+and log lines still strip userinfo from every URL they quote, including the
+ones in fetch's own errors.
+
+Tarball URLs come from the registry's packuments. Like npm, pvmp sends the
+token only to the registry's own origin, never to a tarball on another host.
 
 A 401 or 403 becomes an `auth` error, and its banner offers sign-in (§7.4).
+So does a 401 on packuments behind a listing that needed no sign-in.
 
 ### 4.4 Several sources
 
@@ -188,7 +207,8 @@ pvmp shows one entry per `pvmp.extensionId`, with the versions of every
 source merged. When two sources offer the same version, a build for the exact
 host platform beats `universal`. After that, the source listed first in
 `pvmp.sources` wins. The loser stays in the version list, marked shadowed, and
-the details page names each version's source.
+the details page names each version's source. Two sources with the same `id`
+are a configuration error, because ids key tokens and cache entries.
 
 ## 5. Version resolution
 
@@ -381,11 +401,20 @@ offers a reload; a first install does not. Uninstalling always offers one.
 1.x reloaded the window after every install.
 
 **Update All** installs one extension at a time, skips any still in backoff,
-and offers a single reload at the end. Each failure doubles the wait before
-the next attempt (2, 4, 8 minutes and so on, capped at a day).
+and offers a single reload at the end. It reports failures and skips in a
+warning. Each failure doubles the wait before the next attempt (2, 4, 8
+minutes and so on, capped at a day). A second Update All, or a second install
+of the same extension, joins the one already running: VS Code fails one of
+two concurrent installs.
+
+Installing a specific version fails if no source still offers it. pvmp never
+substitutes another version.
 
 pvmp checks for updates on activation, on refresh, and every
-`pvmp.checkInterval` seconds, and updates the badge. With `pvmp.autoUpdate`
+`pvmp.checkInterval` seconds, and updates the badge. The interval is capped at
+about 24.8 days, because `setInterval` runs a longer delay every millisecond.
+Installs and the pre-release opt-in update the badge and every webview
+without re-listing the sources. With `pvmp.autoUpdate`
 on, the background check installs updates too.
 
 Bookkeeping lives in `globalState`, settings hold only your choices:
@@ -420,7 +449,6 @@ type HostApi = {
 type HostEvents = {
   catalogChanged: () => void;
   installProgress: (progress: InstallProgress) => void;
-  sourceError: (error: SourceError) => void;
 };
 ```
 
@@ -431,7 +459,10 @@ Messages are `{ t: 'req' | 'res' | 'evt' }` objects. The client is a `Proxy`
 that turns each call into a request with an id and a 30-second timeout. The
 host builds a map of the implementation's own function properties up front,
 so a method name from the webview can never reach `__proto__` or inherited
-members. Every payload must survive structured clone.
+members. VS Code serializes every message as JSON, so payloads are plain
+JSON. JSON turns an `undefined` argument into `null`, so the client drops
+trailing `undefined` arguments and an omitted optional parameter stays
+`undefined`.
 
 The webview creates one client per document and never disposes it, because
 `acquireVsCodeApi` can be called only once and StrictMode mounts twice.
@@ -488,7 +519,7 @@ for a container that never stops on its own.
 
 The dev harness replaces `window.acquireVsCodeApi` with a fake host that
 answers over the same `postMessage` path, so the webview's IPC code runs
-unchanged under test: request ids, timeouts, events and structured clone.
+unchanged under test: request ids, timeouts, events and JSON serialization.
 
 `?fixture=` selects a scenario (`auth`, `unreachable`, `slow-install`,
 `install-fails`, `unsafe-readme`, `empty`, `many`, `no-icons`), and tests drive
@@ -540,10 +571,14 @@ token; set `id` on any source that signs in.
 
 ## 17. Open items
 
-1. **Remote install placement is unverified.** Nobody has run an install in a
-   real devcontainer or code-server to confirm it lands on the remote side.
-   Until 2026-10-01 the manifest listed `["ui", "workspace"]`, the reverse of
-   §8, so earlier manual testing proves nothing. Resolve this first.
+1. **Devcontainer install placement is unverified.** On 2026-10-02, installs
+   in code-server 4.139.1 landed on the server (`code-server
+   --list-extensions`). code-server has no local Node extension host, though,
+   so that cannot show which side `extensionKind` picks when both exist. Run
+   an install in a real devcontainer or over Remote SSH. The manifest listed
+   `["ui", "workspace"]` until 2026-10-01 because oxfmt sorts `package.json`
+   arrays. The manifest is now exempt from that sort, and the bundle test
+   asserts the order.
 2. **JFrog and Nexus are tested only against recorded responses.** Validate
    both against real instances before announcing support.
 3. **Local folders are not watched.** `LocalSource.watch()` and the host's
