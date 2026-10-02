@@ -182,6 +182,15 @@ describe('buildCatalog', () => {
     });
   });
 
+  it('matches the installed extension case-insensitively, as VS Code does', () => {
+    const [entry] = buildCatalog(
+      [version({ version: '1.1.0' })],
+      [{ extensionId: 'Acme.Lint', version: '1.0.0' }],
+      ctx(),
+    );
+    expect(entry).toMatchObject({ status: 'update-available', installed: { version: '1.0.0' } });
+  });
+
   it('marks an update available using semver, not string order', () => {
     const [entry] = buildCatalog(
       [version({ version: '1.10.0' }), version({ version: '1.9.0' })],

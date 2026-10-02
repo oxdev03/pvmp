@@ -118,7 +118,8 @@ export function buildCatalog(
     else byExtension.set(version.extensionId, [version]);
   }
 
-  const installedBy = new Map(installed.map((e) => [e.extensionId, e.version]));
+  // VS Code reports the manifest's casing, `Acme.lint`; catalog ids are lowercase.
+  const installedBy = new Map(installed.map((e) => [e.extensionId.toLowerCase(), e.version]));
   const entries: CatalogEntry[] = [];
 
   for (const [extensionId, all] of byExtension) {

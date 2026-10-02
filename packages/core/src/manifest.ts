@@ -69,11 +69,14 @@ export function toExtensionVersion(raw: PvmpPackageJson, ctx: ManifestContext): 
     throw new ManifestError(ctx.locator, 'package.json has no "pvmp" block; not a pvmp package');
   }
 
-  const extensionId = nonEmptyString(pvmp['extensionId']);
-  if (!extensionId) throw new ManifestError(ctx.locator, 'pvmp.extensionId is missing');
-  if (!EXTENSION_ID.test(extensionId)) {
-    throw new ManifestError(ctx.locator, `pvmp.extensionId "${extensionId}" is not publisher.name`);
+  const rawId = nonEmptyString(pvmp['extensionId']);
+  if (!rawId) throw new ManifestError(ctx.locator, 'pvmp.extensionId is missing');
+  if (!EXTENSION_ID.test(rawId)) {
+    throw new ManifestError(ctx.locator, `pvmp.extensionId "${rawId}" is not publisher.name`);
   }
+  // VS Code compares ids case-insensitively, so pvmp keys everything by the
+  // lowercase form (SPEC.md §2).
+  const extensionId = rawId.toLowerCase();
 
   const rawTarget = nonEmptyString(pvmp['targetPlatform']) ?? 'universal';
   if (!isTargetPlatform(rawTarget)) {
@@ -84,7 +87,7 @@ export function toExtensionVersion(raw: PvmpPackageJson, ctx: ManifestContext): 
   }
   const targetPlatform: TargetPlatform = rawTarget;
 
-  const publisher = extensionId.slice(0, extensionId.indexOf('.'));
+  const publisher = rawId.slice(0, rawId.indexOf('.'));
   const engines = record(raw.engines);
 
   return {
