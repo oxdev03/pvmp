@@ -65,8 +65,12 @@ export function createMemoryFileStore(): FileStore {
     },
     stat: (path) => {
       const file = files.get(path);
+      if (file) return Promise.resolve({ size: file.data.length, mtime: file.mtime, type: 'file' });
+      // Directories exist implicitly, as the parents of stored files.
+      const prefix = path.endsWith('/') ? path : `${path}/`;
+      const isDirectory = [...files.keys()].some((key) => key.startsWith(prefix));
       return Promise.resolve(
-        file ? { size: file.data.length, mtime: file.mtime, type: 'file' as const } : undefined,
+        isDirectory ? { size: 0, mtime: clock, type: 'directory' } : undefined,
       );
     },
   };

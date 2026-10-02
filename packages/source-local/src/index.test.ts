@@ -107,12 +107,23 @@ describe('LocalSource.list', () => {
     expect(await source().list()).toHaveLength(0);
   });
 
-  it('skips an unreadable package instead of failing the whole scan', async () => {
+  it('skips an unreadable package instead of failing the whole scan, and says so', async () => {
+    const warn = vi.fn<(message: string) => void>();
+    h.deps.log = { ...silentLog, warn };
     await writeTarball(h.files, '/vsix/good.tgz', 'lint', '1.0.0');
     await h.files.write('/vsix/corrupt.tgz', new TextEncoder().encode('not a gzip'));
 
     const versions = await source().list();
     expect(versions.map((v) => v.extensionId)).toEqual(['acme.lint']);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('/vsix/corrupt.tgz'));
+  });
+
+  it('lowercases the extension id, which VS Code compares case-insensitively', async () => {
+    await writeTarball(h.files, '/vsix/lint.tgz', 'lint', '1.0.0', {
+      pvmp: { extensionId: 'Acme.Lint' },
+    });
+    const [version] = await source().list();
+    expect(version).toMatchObject({ extensionId: 'acme.lint', publisher: 'Acme' });
   });
 
   it('skips a tarball with no pvmp block', async () => {
@@ -123,8 +134,11 @@ describe('LocalSource.list', () => {
     expect(await source().list()).toHaveLength(0);
   });
 
-  it('returns an empty list for a directory that does not exist', async () => {
-    expect(await source(3, '/nowhere').list()).toEqual([]);
+  it('reports a folder that does not exist as a config error', async () => {
+    await expect(source(3, '/nowhere').list()).rejects.toMatchObject({
+      kind: 'config',
+      message: expect.stringContaining('/nowhere'),
+    });
   });
 });
 

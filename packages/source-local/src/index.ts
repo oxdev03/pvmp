@@ -8,6 +8,7 @@ import type {
   SourceProvider,
 } from '@pvmp/core';
 import {
+  errorMessage,
   extractContent,
   nonEmptyString,
   readPvmpTarball,
@@ -19,6 +20,8 @@ import {
 export const LOCAL_SOURCE_TYPE = 'local';
 
 const DEFAULT_DEPTH = 3;
+/** Packages read at once on a scan (SPEC.md §4.1). */
+const SCAN_BATCH = 4;
 /** Never contain packages, and can be huge. */
 const SKIP_DIRECTORIES = new Set(['node_modules', '.git', '.svn', '.hg', '.cache']);
 
@@ -52,10 +55,31 @@ export class LocalSource implements SourceProvider {
   }
 
   async list(): Promise<ExtensionVersion[]> {
+    // A typo, an unset ${env:NAME} or a relative path would otherwise list
+    // nothing, with no visible cause.
+    if ((await this.deps.files.stat(this.root))?.type !== 'directory') {
+      throw new SourceFailure(this.id, 'config', `folder "${this.root}" does not exist`);
+    }
+
     const paths = await collectTarballs(this.deps.files, this.root, this.depth);
     this.deps.log.debug(`[${this.id}] scanned ${this.root}: ${paths.length} package(s)`);
 
-    const results = await Promise.all(paths.map((path) => this.#read(path).catch(() => undefined)));
+    // One unreadable package skips that package, not the whole folder.
+    const read = (path: string) =>
+      this.#read(path).catch((error: unknown) => {
+        this.deps.log.warn(`[${this.id}] skipping ${errorMessage(error)}`);
+        return undefined;
+      });
+
+    // An uncached package is read and inflated whole. All at once, a 1 GB
+    // folder took the extension host past 2.4 GB.
+    // ponytail: fixed batches, so one slow file stalls its batch; a worker
+    // pool would keep the reads flowing if first scans get slow.
+    const results: (CachedEntry | undefined)[] = [];
+    for (let start = 0; start < paths.length; start += SCAN_BATCH) {
+      // oxlint-disable-next-line no-await-in-loop -- batches bound memory on purpose
+      results.push(...(await Promise.all(paths.slice(start, start + SCAN_BATCH).map(read))));
+    }
     return results
       .filter((entry): entry is CachedEntry => entry !== undefined)
       .map((e) => e.version);
