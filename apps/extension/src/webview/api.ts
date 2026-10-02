@@ -26,6 +26,8 @@ export interface HostApiDeps {
   openDetails: (extensionId: string) => void;
   /** Re-reads every source and notifies all webviews. */
   refresh: () => Promise<void>;
+  /** Updates the badge and notifies all webviews, without re-listing. Never rejects. */
+  catalogChanged: () => Promise<void>;
   /** globalStorageUri: the cache's FileStore root, and a webview resource root. */
   storage: vscode.Uri;
 }
@@ -58,7 +60,7 @@ export function createHostApi(deps: HostApiDeps, webview: vscode.Webview): HostA
 
     async install(extensionId: string, version: string): Promise<InstallResult> {
       const result = await deps.installer.install(extensionId, version);
-      deps.catalog.invalidate();
+      void deps.catalogChanged();
       if (result.ok && result.reloadRequired) {
         void offerReload(`${extensionId} was updated. Reload to finish applying it.`);
       }
@@ -70,7 +72,7 @@ export function createHostApi(deps: HostApiDeps, webview: vscode.Webview): HostA
 
     async uninstall(extensionId: string): Promise<InstallResult> {
       const result = await deps.installer.uninstall(extensionId);
-      deps.catalog.invalidate();
+      void deps.catalogChanged();
       if (result.ok) {
         void offerReload(`${extensionId} was uninstalled. Reload to finish removing it.`);
       }
@@ -85,7 +87,7 @@ export function createHostApi(deps: HostApiDeps, webview: vscode.Webview): HostA
 
     async setPreReleaseOptIn(extensionId: string, on: boolean): Promise<void> {
       await deps.state.setPreReleaseOptIn(extensionId, on);
-      deps.catalog.invalidate();
+      await deps.catalogChanged();
     },
 
     openExtension: (extensionId: string): Promise<void> => {

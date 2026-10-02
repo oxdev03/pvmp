@@ -30,7 +30,6 @@ export interface CatalogDeps {
   sourceDeps: SourceDeps;
   state: ExtensionState;
   log: Logger;
-  onSourceError: (error: SourceError) => void;
 }
 
 async function isAlpine(): Promise<boolean> {
@@ -77,10 +76,23 @@ export class CatalogService {
     const built: SourceProvider[] = [];
     const errors: SourceError[] = [];
 
+    const ids = new Set<string>();
+
     for (const [index, config] of sources.entries()) {
       const id = defaultSourceId(config, index);
       const type = typeof config.type === 'string' ? config.type : '';
       const factory = this.deps.registry.get(type);
+
+      // Ids key tokens and cache entries, and locate() finds a source by id.
+      if (ids.has(id)) {
+        errors.push({
+          sourceId: id,
+          kind: 'config',
+          message: `Another source already uses the id "${id}". Give each source a unique "id".`,
+        });
+        continue;
+      }
+      ids.add(id);
 
       if (!factory) {
         errors.push({
@@ -138,7 +150,6 @@ export class CatalogService {
             const sourceError = toSourceError(source.id, error);
             errors.push(sourceError);
             this.deps.log.error(`[${source.id}] ${sourceError.message}`);
-            this.deps.onSourceError(sourceError);
             return [];
           }
         }),
@@ -184,7 +195,12 @@ export class CatalogService {
     };
   }
 
-  /** Resolves an extension id and version back to its owning source. */
+  /**
+   * Resolves an extension id and version back to its owning source. Without a
+   * version it picks the latest. A requested version that is no longer offered
+   * is an error, never a silent substitute: install would put a version on
+   * disk that nobody asked for.
+   */
   async locate(
     extensionId: string,
     version?: string,
@@ -194,10 +210,16 @@ export class CatalogService {
     if (!entry) throw new Error(`No such extension: ${extensionId}`);
 
     const resolved =
-      (version ? entry.versions.find((v) => v.version === version && !v.shadowed) : undefined) ??
-      entry.latest ??
-      entry.versions[0];
-    if (!resolved) throw new Error(`${extensionId} has no installable version`);
+      version === undefined
+        ? (entry.latest ?? entry.versions[0])
+        : entry.versions.find((v) => v.version === version && !v.shadowed);
+    if (!resolved) {
+      throw new Error(
+        version === undefined
+          ? `${extensionId} has no installable version`
+          : `${extensionId}@${version} is not offered by any source`,
+      );
+    }
 
     const source = this.#sources.find((candidate) => candidate.id === resolved.sourceId);
     if (!source) throw new Error(`Source "${resolved.sourceId}" is no longer configured`);

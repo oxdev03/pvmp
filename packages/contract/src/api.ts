@@ -3,7 +3,6 @@ import type {
   ExtensionDetails,
   InstallProgress,
   InstallResult,
-  SourceError,
 } from './domain.ts';
 
 /**
@@ -36,5 +35,4 @@ export type HostApi = {
 export type HostEvents = {
   catalogChanged: () => void;
   installProgress: (progress: InstallProgress) => void;
-  sourceError: (error: SourceError) => void;
 };

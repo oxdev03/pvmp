@@ -48,7 +48,8 @@ export class BlobCache {
   constructor(
     private readonly store: FileStore,
     private readonly root: string,
-    private readonly maxBytes = 200 * 1024 * 1024,
+    /** Settable, so a changed pvmp.cacheSizeMb applies at the next prune. */
+    public maxBytes = 200 * 1024 * 1024,
   ) {}
 
   /** Where a blob lives, relative to the FileStore root. */

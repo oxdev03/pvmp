@@ -28,6 +28,10 @@ export const COMMANDS = {
   showLog: 'pvmp.showLog',
 } as const;
 
+const MB = 1024 * 1024;
+/** setInterval's 32-bit limit, in milliseconds. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
 /** For deactivate(), which must flush the cache index before the window closes. */
 let activeCache: BlobCache | undefined;
 
@@ -45,8 +49,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const hub = new WebviewHub();
   context.subscriptions.push(new vscode.Disposable(() => hub.dispose()));
 
-  const settings = readSettings();
-  const cache = new BlobCache(files, 'cache', settings.cacheSizeMb * 1024 * 1024);
+  const cache = new BlobCache(files, 'cache', readSettings().cacheSizeMb * MB);
   activeCache = cache;
 
   const sourceDeps: SourceDeps = {
@@ -76,9 +79,7 @@ export function activate(context: vscode.ExtensionContext): void {
     sourceDeps,
     state,
     log,
-    onSourceError: (error) => hub.emit('sourceError', error),
   });
-  catalog.reloadSources();
   context.subscriptions.push(new vscode.Disposable(() => catalog.dispose()));
 
   const installer = new Installer({
@@ -91,18 +92,28 @@ export function activate(context: vscode.ExtensionContext): void {
 
   let sidebar: MarketplaceViewProvider | undefined;
 
-  /** Re-reads the catalog, then updates the badge and every open webview. */
-  const republish = async (): Promise<CatalogSnapshot> => {
-    catalog.invalidate();
+  /**
+   * Updates the badge and every open webview. Installs and the pre-release
+   * opt-in change entry status without changing any source listing, so this
+   * does not re-list.
+   */
+  const notify = async (): Promise<CatalogSnapshot> => {
     const snapshot = await catalog.snapshot();
     sidebar?.setBadge(snapshot.entries.filter((e) => e.status === 'update-available').length);
     hub.emit('catalogChanged');
     return snapshot;
   };
 
+  /** Re-lists every source, then notifies. */
+  const republish = (): Promise<CatalogSnapshot> => {
+    catalog.invalidate();
+    return notify();
+  };
+
   const refresh = async (): Promise<void> => {
     catalog.reloadSources();
     await republish();
+    cache.maxBytes = readSettings().cacheSizeMb * MB;
     await cache.prune();
     await cache.flush();
   };
@@ -118,6 +129,13 @@ export function activate(context: vscode.ExtensionContext): void {
     openDetails: (extensionId) =>
       DetailsPanel.show(extensionId, context.extensionUri, apiDeps, hub),
     refresh,
+    catalogChanged: async () => {
+      try {
+        await notify();
+      } catch (error) {
+        log.error(`catalog update failed: ${String(error)}`);
+      }
+    },
   };
 
   sidebar = new MarketplaceViewProvider(context.extensionUri, apiDeps, hub);
@@ -156,14 +174,23 @@ export function activate(context: vscode.ExtensionContext): void {
         () => installer.updateAll(),
       );
 
-      await republish();
+      await notify();
 
-      if (result.updated === 0 && result.failed === 0) {
+      const { updated, failed, skipped, reloadRequired } = result;
+      if (updated + failed + skipped === 0) {
         void vscode.window.showInformationMessage('pvmp: everything is up to date.');
-      } else if (result.reloadRequired) {
-        void offerReload(
-          `pvmp updated ${result.updated} extension(s). Reload to finish applying them.`,
-        );
+      }
+      if (failed + skipped > 0) {
+        const problems = [
+          failed > 0 && `${failed} update(s) failed`,
+          skipped > 0 && `${skipped} update(s) are waiting to retry after an earlier failure`,
+        ].filter(Boolean);
+        void vscode.window
+          .showWarningMessage(`pvmp: ${problems.join(' and ')}.`, 'Show Log')
+          .then((choice) => choice && channel.show(true));
+      }
+      if (reloadRequired) {
+        void offerReload(`pvmp updated ${updated} extension(s). Reload to finish applying them.`);
       }
     }),
   );
@@ -176,12 +203,14 @@ export function activate(context: vscode.ExtensionContext): void {
     timer = undefined;
 
     const { checkInterval } = readSettings();
-    if (checkInterval <= 0) {
+    // `> 0` also rejects NaN and non-numeric strings from a hand-edited setting.
+    if (!(checkInterval > 0)) {
       log.info('background update check is disabled');
       return;
     }
 
-    timer = setInterval(() => void backgroundCheck(), checkInterval * 1000);
+    // setInterval runs a longer delay every millisecond, so cap at ~24.8 days.
+    timer = setInterval(() => void backgroundCheck(), Math.min(checkInterval * 1000, MAX_TIMER_MS));
     log.info(`background update check every ${checkInterval}s`);
   };
 
@@ -213,10 +242,8 @@ export function activate(context: vscode.ExtensionContext): void {
       restartTimer();
       void refresh();
     }),
-    vscode.extensions.onDidChange(() => {
-      catalog.invalidate();
-      hub.emit('catalogChanged');
-    }),
+    // The snapshot reads installed versions fresh, so this needs no re-list.
+    vscode.extensions.onDidChange(() => void apiDeps.catalogChanged()),
   );
 
   restartTimer();

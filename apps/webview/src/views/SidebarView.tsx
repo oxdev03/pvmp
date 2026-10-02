@@ -87,7 +87,8 @@ export function SidebarView() {
     <div className="flex h-full flex-col overflow-y-auto">
       {data?.errors.map((sourceError) => (
         <ErrorBanner
-          key={sourceError.sourceId}
+          // A duplicate id gets its own config error, so the id alone can repeat.
+          key={`${sourceError.sourceId}:${sourceError.message}`}
           error={sourceError}
           onSignIn={(sourceId) => void host.signIn(sourceId)}
           onShowLog={() => void host.openLog()}

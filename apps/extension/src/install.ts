@@ -21,10 +21,38 @@ function isInstalled(extensionId: string): boolean {
   return vscode.extensions.getExtension(extensionId) !== undefined;
 }
 
+export interface UpdateAllResult {
+  updated: number;
+  failed: number;
+  /** Still backing off after an earlier failure. */
+  skipped: number;
+  reloadRequired: boolean;
+}
+
 export class Installer {
+  readonly #installing = new Map<string, Promise<InstallResult>>();
+  #updating: Promise<UpdateAllResult> | undefined;
+
   constructor(private readonly deps: InstallerDeps) {}
 
-  async install(extensionId: string, version: string): Promise<InstallResult> {
+  /**
+   * Joins an install of the same extension that is already running. VS Code
+   * fails one of two concurrent installs, which would report an error and
+   * start a backoff for a version that did install. The UI shows progress
+   * instead of buttons while one runs, so a joined call asks for the same
+   * version in practice.
+   */
+  install(extensionId: string, version: string): Promise<InstallResult> {
+    const running = this.#installing.get(extensionId);
+    if (running) return running;
+    const started = this.#install(extensionId, version).finally(() =>
+      this.#installing.delete(extensionId),
+    );
+    this.#installing.set(extensionId, started);
+    return started;
+  }
+
+  async #install(extensionId: string, version: string): Promise<InstallResult> {
     const report = (phase: InstallProgress['phase'], message?: string) =>
       this.deps.onProgress({
         extensionId,
@@ -87,16 +115,25 @@ export class Installer {
     }
   }
 
+  /** Joins a run already in progress: a double click, or the background check. */
+  updateAll(): Promise<UpdateAllResult> {
+    this.#updating ??= this.#updateAll().finally(() => {
+      this.#updating = undefined;
+    });
+    return this.#updating;
+  }
+
   /**
    * Installs every available update, skipping any still in backoff. The
    * caller offers one reload at the end (SPEC.md §9).
    */
-  async updateAll(): Promise<{ updated: number; failed: number; reloadRequired: boolean }> {
+  async #updateAll(): Promise<UpdateAllResult> {
     const snapshot = await this.deps.catalog.snapshot();
     const outdated = snapshot.entries.filter((entry) => entry.status === 'update-available');
 
     let updated = 0;
     let failed = 0;
+    let skipped = 0;
     let reloadRequired = false;
 
     for (const entry of outdated) {
@@ -105,6 +142,7 @@ export class Installer {
 
       if (this.deps.state.isBackingOff(entry.extensionId, target.version)) {
         this.deps.log.warn(`skipping ${entry.extensionId}@${target.version}: backing off`);
+        skipped++;
         continue;
       }
 
@@ -120,7 +158,7 @@ export class Installer {
       }
     }
 
-    return { updated, failed, reloadRequired };
+    return { updated, failed, skipped, reloadRequired };
   }
 }
 
