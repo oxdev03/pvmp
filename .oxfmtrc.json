@@ -12,5 +12,13 @@
     "pnpm-lock.yaml",
     "**/__screenshots__/**",
     "SPEC.md"
+  ],
+  "overrides": [
+    {
+      "files": ["apps/extension/package.json"],
+      "options": {
+        "sortPackageJson": false
+      }
+    }
   ]
 }

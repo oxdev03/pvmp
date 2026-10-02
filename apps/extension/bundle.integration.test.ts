@@ -209,6 +209,15 @@ describe('packaged bundle', () => {
     expect(recorded.outputChannels).toEqual(['Private Marketplace']);
   });
 
+  it('prefers the workspace extension host, as SPEC.md §8 decided', async () => {
+    // The order is the decision, and a package.json sorter once reversed it.
+    const { readFile } = await import('node:fs/promises');
+    const manifest = JSON.parse(await readFile(join(here, 'package.json'), 'utf8')) as {
+      extensionKind: string[];
+    };
+    expect(manifest.extensionKind).toEqual(['workspace', 'ui']);
+  });
+
   it('deactivates cleanly', () => {
     expect(() => loaded.deactivate()).not.toThrow();
   });
