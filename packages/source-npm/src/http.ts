@@ -4,8 +4,26 @@ import { errorMessage, httpErrorKind, SourceFailure } from '@pvmp/core';
 export interface HttpContext {
   sourceId: string;
   log: Logger;
-  /** Bearer token, or undefined for an anonymous registry. */
+  /** The stored secret (see authorization()), or undefined for an anonymous registry. */
   token: string | undefined;
+}
+
+/**
+ * True for a `username:password` secret, or a Nexus user token's `name:code`.
+ * npm, Verdaccio and JFrog tokens contain no colon.
+ */
+export function isBasicCredential(token: string): boolean {
+  return token.includes(':');
+}
+
+/**
+ * The Authorization header for a stored secret: Basic for credentials,
+ * Bearer otherwise. Nexus's REST API accepts only Basic (SPEC.md §4.3).
+ */
+export function authorization(token: string): string {
+  if (!isBasicCredential(token)) return `Bearer ${token}`;
+  // UTF-8 first: btoa takes only Latin-1, and passwords need not be.
+  return `Basic ${btoa(String.fromCharCode(...new TextEncoder().encode(token)))}`;
 }
 
 /**
@@ -63,7 +81,7 @@ function headers(ctx: HttpContext, options: HttpOptions): Record<string, string>
   const result: Record<string, string> = {
     accept: options.accept ?? 'application/json',
   };
-  if (ctx.token) result['authorization'] = `Bearer ${ctx.token}`;
+  if (ctx.token) result['authorization'] = authorization(ctx.token);
   if (options.etag) result['if-none-match'] = options.etag;
   return result;
 }

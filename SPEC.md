@@ -161,7 +161,7 @@ machine (§8).
 | ----------- | --------------------------------------------------- | --------------------------- |
 | `verdaccio` | `/-/all`, falling back to `/-/v1/search?text=`      | A live Verdaccio container  |
 | `jfrog`     | `GET /api/storage/<repo>?list&deep=1`               | Recorded responses only     |
-| `nexus`     | `GET /service/rest/v1/components?repository=<repo>` | Recorded responses only     |
+| `nexus`     | `GET /service/rest/v1/components?repository=<repo>` | Nexus 3.96 CE, by hand      |
 
 Without an `adapter` setting, a registry URL containing `/api/npm/` selects
 `jfrog` and one containing `/repository/` selects `nexus`. Any other URL is a
@@ -175,6 +175,15 @@ also answer an anonymous listing of a private registry with an empty 200, so
 an empty listing without a token becomes an `auth` error that offers
 sign-in (§4.3).
 
+Nexus reports a scoped package as group `corp` (no `@`) and name `vsc-lint`;
+the adapter rebuilds `@corp/vsc-lint`. The components API also lists group
+repositories, so `registry` may point at a hosted or a group repository.
+Nexus was checked by hand on 2026-10-02 against 3.96.4 Community Edition:
+hosted and group repositories, scoped and unscoped packages, anonymous and
+authenticated, through to an install in code-server. There is no automated
+Nexus test, because Community Edition blocks uploads until someone accepts
+its EULA.
+
 A tarball is verified against the packument's `dist.integrity` (or legacy
 `dist.shasum`) before it installs.
 
@@ -184,10 +193,18 @@ the HTTP client the JFrog and Nexus adapters use.
 
 ### 4.3 Authentication
 
-Each source can have a bearer token, stored in SecretStorage (the OS keychain)
-under `pvmp.token.<sourceId>` and sent as `Authorization: Bearer <token>`.
-**Private Marketplace: Sign in to Source** asks for it; submitting an empty
-token deletes it. pvmp does not read `.npmrc`.
+Each source can have one secret, stored in SecretStorage (the OS keychain)
+under `pvmp.token.<sourceId>`. A secret containing a colon is
+`username:password` (or a Nexus user token's `name:code`) and goes as
+`Authorization: Basic`; anything else is a token and goes as
+`Authorization: Bearer <token>`. npm, Verdaccio and JFrog tokens contain no
+colon. **Private Marketplace: Sign in to Source** asks for it; submitting an
+empty secret deletes it. pvmp does not read `.npmrc`.
+
+Nexus needs `username:password`: its REST API, which lists the catalog,
+rejects npm Bearer tokens even with the npm Bearer Token realm enabled,
+which only the npm endpoints accept. A 401 there after signing in with a
+token says so in the banner.
 
 Settings sync between machines, so tokens never go there. A registry URL
 with userinfo (`https://user:pass@host/`) is a configuration error: fetch
@@ -579,8 +596,9 @@ token; set `id` on any source that signs in.
    `["ui", "workspace"]` until 2026-10-01 because oxfmt sorts `package.json`
    arrays. The manifest is now exempt from that sort, and the bundle test
    asserts the order.
-2. **JFrog and Nexus are tested only against recorded responses.** Validate
-   both against real instances before announcing support.
+2. **JFrog is tested only against recorded responses.** Validate it against
+   a real Artifactory before announcing support; the free edition does not
+   host npm. Nexus was checked by hand (§4.2) but has no automated test.
 3. **Local folders are not watched.** `LocalSource.watch()` and the host's
    `FileSystemWatcher` hook exist but nothing connects them, so a new `.tgz`
    appears after the next refresh.

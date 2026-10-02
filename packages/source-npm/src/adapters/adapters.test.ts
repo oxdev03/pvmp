@@ -135,6 +135,8 @@ describe('jfrogAdapter', () => {
 
 describe('nexus qualified names', () => {
   it.each([
+    // What Nexus 3.96 returns for @corp/vsc-lint.
+    [{ name: 'vsc-lint', group: 'corp' }, '@corp/vsc-lint'],
     [{ name: 'vsc-lint', group: '@corp' }, '@corp/vsc-lint'],
     [{ name: '@corp/vsc-lint', group: '@corp' }, '@corp/vsc-lint'],
     [{ name: 'plain' }, 'plain'],
@@ -173,6 +175,37 @@ describe('nexusAdapter', () => {
 
     await nexusAdapter.listPackages(ctx({ registry: 'https://nexus.corp/repository/npm-hosted/' }));
     expect(recorder.urls.length).toBeLessThanOrEqual(200);
+  });
+
+  const signedIn = (token: string) =>
+    ctx({
+      registry: 'https://nexus.corp/repository/npm-hosted/',
+      http: { sourceId: 'corp', log: silentLog, token },
+    });
+
+  it('sends username:password as Basic auth, UTF-8 encoded', async () => {
+    const { fetch, recorder } = stubFetch({
+      'https://nexus.corp/service/rest/v1/components': { json: { items: [] } },
+    });
+    vi.stubGlobal('fetch', fetch);
+
+    await nexusAdapter.listPackages(signedIn('jürgen:pa:ss'));
+    expect(recorder.headers[0]?.['authorization']).toBe(
+      `Basic ${Buffer.from('jürgen:pa:ss').toString('base64')}`,
+    );
+  });
+
+  it('explains that the REST API rejects npm tokens', async () => {
+    // Nexus 3.96 answers an npm Bearer token on the REST API with a 401.
+    const { fetch } = stubFetch({
+      'https://nexus.corp/service/rest/v1/components': { status: 401 },
+    });
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(nexusAdapter.listPackages(signedIn('NpmToken.abc'))).rejects.toMatchObject({
+      kind: 'auth',
+      message: expect.stringContaining('username:password'),
+    });
   });
 });
 

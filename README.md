@@ -30,8 +30,9 @@ the README or to install it.
   first wins, and the details page shows the other as shadowed.
 - Builds for other platforms, and versions that need a newer VS Code, are
   hidden. Pre-releases are opt-in per extension.
-- Tokens go in the OS keychain. pvmp strips credentials from registry URLs
-  before logging them or showing them in an error.
+- Tokens and passwords go in the OS keychain, never in settings. A registry
+  URL with credentials in it is rejected, and URLs in logs and errors have
+  credentials stripped.
 - In a devcontainer, over SSH or in code-server, pvmp runs on the remote side
   and installs extensions there.
 
@@ -74,7 +75,8 @@ panel to see every request, without reloading.
 ```
 
 4. If the registry needs auth, run **Private Marketplace: Sign in to Source**
-   and paste a token.
+   and paste a token. For Nexus, type `username:password` instead: its REST
+   API does not accept npm tokens.
 
 ## Sources
 
@@ -125,7 +127,7 @@ script, and CI examples for GitHub Actions, GitLab and Jenkins.
 | Private Marketplace: Refresh Sources       | Re-read every source now.                              |
 | Private Marketplace: Update All Extensions | Install every available update, then offer one reload. |
 | Private Marketplace: Add Folder Source     | Pick folders and append them to `pvmp.sources`.        |
-| Private Marketplace: Sign in to Source     | Store a token for a source in the OS keychain.         |
+| Private Marketplace: Sign in to Source     | Store a token or username:password in the OS keychain. |
 | Private Marketplace: Show Log              | Open the output channel.                               |
 | Private Marketplace: Open Settings         | Jump to pvmp's settings.                               |
 

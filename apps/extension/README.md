@@ -23,7 +23,8 @@ of packages.
    ```
 
 3. If the registry needs a token, run **Private Marketplace: Sign in to
-   Source**. pvmp keeps tokens in the OS keychain.
+   Source**. For Nexus, enter `username:password` instead. pvmp keeps both
+   in the OS keychain.
 
 Outdated extensions appear under **Updates Available** and on the activity-bar
 badge. **Private Marketplace: Update All Extensions** installs them all and
