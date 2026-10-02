@@ -146,13 +146,75 @@ describe('nexus qualified names', () => {
   });
 });
 
+/**
+ * A component as Nexus 3.96.4 CE returns it from /service/rest/v1/components,
+ * trimmed of checksums. A scoped package's group has no `@`; an unscoped one
+ * has group "".
+ */
+function nexusComponent(group: string, name: string, version: string) {
+  const path = `${group ? `@${group}/` : ''}${name}/-/${name}-${version}.tgz`;
+  return {
+    id: 'bnBtLWhvc3RlZDo0ZjFiYmNkZA',
+    repository: 'npm-hosted',
+    format: 'npm',
+    group,
+    name,
+    version,
+    assets: [
+      {
+        downloadUrl: `https://nexus.corp/repository/npm-hosted/${path}`,
+        path,
+        format: 'npm',
+        contentType: 'application/x-tgz',
+      },
+    ],
+  };
+}
+
 describe('nexusAdapter', () => {
+  it('lists scoped and unscoped packages from a recorded response', async () => {
+    const { fetch } = stubFetch({
+      'https://nexus.corp/service/rest/v1/components': {
+        json: {
+          items: [
+            nexusComponent('corp', 'vsc-lint', '1.0.0'),
+            nexusComponent('corp', 'vsc-lint', '1.2.0'),
+            nexusComponent('', 'vsc-delta', '0.3.0'),
+            nexusComponent('other', 'vsc-eps', '1.0.0'),
+          ],
+          continuationToken: null,
+        },
+      },
+    });
+    vi.stubGlobal('fetch', fetch);
+
+    const registry = 'https://nexus.corp/repository/npm-hosted/';
+    expect((await nexusAdapter.listPackages(ctx({ registry }))).toSorted()).toEqual([
+      '@corp/vsc-lint',
+      '@other/vsc-eps',
+      'vsc-delta',
+    ]);
+    expect(await nexusAdapter.listPackages(ctx({ registry, scope: '@corp' }))).toEqual([
+      '@corp/vsc-lint',
+    ]);
+  });
+
   it('follows the continuation cursor to the end', async () => {
     const { fetch, recorder } = stubFetch({
       'https://nexus.corp/service/rest/v1/components': (url) =>
         url.includes('continuationToken=page2')
-          ? { json: { items: [{ name: 'vsc-theme', group: '@corp' }] } }
-          : { json: { items: [{ name: 'vsc-lint', group: '@corp' }], continuationToken: 'page2' } },
+          ? {
+              json: {
+                items: [nexusComponent('corp', 'vsc-theme', '2.0.0')],
+                continuationToken: null,
+              },
+            }
+          : {
+              json: {
+                items: [nexusComponent('corp', 'vsc-lint', '1.0.0')],
+                continuationToken: 'page2',
+              },
+            },
     });
     vi.stubGlobal('fetch', fetch);
 
@@ -168,7 +230,7 @@ describe('nexusAdapter', () => {
   it('stops rather than looping forever on a repeating cursor', async () => {
     const { fetch, recorder } = stubFetch({
       'https://nexus.corp/service/rest/v1/components': {
-        json: { items: [{ name: 'a' }], continuationToken: 'always' },
+        json: { items: [nexusComponent('', 'a', '1.0.0')], continuationToken: 'always' },
       },
     });
     vi.stubGlobal('fetch', fetch);
@@ -185,7 +247,9 @@ describe('nexusAdapter', () => {
 
   it('sends username:password as Basic auth, UTF-8 encoded', async () => {
     const { fetch, recorder } = stubFetch({
-      'https://nexus.corp/service/rest/v1/components': { json: { items: [] } },
+      'https://nexus.corp/service/rest/v1/components': {
+        json: { items: [], continuationToken: null },
+      },
     });
     vi.stubGlobal('fetch', fetch);
 
